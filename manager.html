@@ -21,7 +21,7 @@
       }
 
       .container {
-        max-width: 800px;
+        max-width: 1000px;
         margin: 0 auto;
         background: white;
         border-radius: 15px;
@@ -415,6 +415,8 @@ supabase에서 아래 복사 붙여넣기 해라.. blah blah
         <!-- 관리자 화면3: 응답 내역 -->
         <div id="survey" class="page">
 
+          <div id="surveyDetailDiv"></div>
+          <div id="ResultAlertDiv"></div>
 
         </div>
       </div>
@@ -1236,8 +1238,8 @@ async function showResultDetail(uniqueKey) {
     // 응답내역 탭으로 이동
     showPage('survey');
     
-    const surveyPage = document.getElementById('survey');
-    surveyPage.innerHTML = `
+    const surveyDetailDiv = document.getElementById('survey');
+    surveyDetailDiv.innerHTML = `
         <div class="loading">
             <div class="spinner"></div>
             <p>응답 내역을 불러오는 중...</p>
@@ -1257,7 +1259,7 @@ async function showResultDetail(uniqueKey) {
         displayDetailedResults(data, uniqueKey);
 
     } catch (error) {
-        surveyPage.innerHTML = `
+        surveyDetailDiv.innerHTML = `
             <div class="alert alert-error">
                 데이터 로딩 실패: ${error.message}
             </div>
@@ -1267,10 +1269,10 @@ async function showResultDetail(uniqueKey) {
 
 // 상세 결과 표시 함수
 function displayDetailedResults(results, uniqueKey) {
-    const surveyPage = document.getElementById('survey');
+    const surveyDetailDiv = document.getElementById('survey');
     
     if (results.length === 0) {
-        surveyPage.innerHTML = `
+        surveyDetailDiv.innerHTML = `
             <div class="alert alert-info">
                 <h3>응답 내역</h3>
                 <p>고유키 "${uniqueKey}"에 대한 응답이 없습니다.</p>
@@ -1295,9 +1297,20 @@ function displayDetailedResults(results, uniqueKey) {
         <div style="margin-bottom: 20px;">
             <h2>📝 응답 상세 내역</h2>
             <div class="alert alert-info">
-                <strong>설문번호(고유키):</strong> ${uniqueKey} | <strong>센터:</strong> ${educationInfo.center_name} <br>
-                <strong>강사:</strong> ${educationInfo.instructor_name} | ${educationInfo.education_name} } <strong>교육명:</strong> ${educationInfo.education_name}<br>
-                <strong>총 응답 수:</strong> ${totalResponses}건 | <strong>평균 만족도:</strong> ${avgScore}점
+              <table width="100%%">
+                <tr>
+                 <td width="50%"><strong>센터명:</strong> ${educationInfo.center_name} </td>
+                 <td width="50%"><strong>설문 고유키:</strong> ${uniqueKey} </td>
+                 </tr>
+                <tr>
+                  <td><strong>강사명:</strong> ${educationInfo.instructor_name} </td>
+                  <td><strong>총 응답 수:</strong> ${totalResponses}건 </td>
+                </tr>
+                <tr>
+                  <td><strong>교육명:</strong> ${educationInfo.education_name}</td>
+                  <td><strong>평균 만족도:</strong> ${avgScore}점 </td>
+                </tr>
+              </table>
             </div>
         </div>
 
@@ -1305,21 +1318,22 @@ function displayDetailedResults(results, uniqueKey) {
             <table class="table">
                 <thead>
                     <tr>
-                        <th width="8%">응답일</th>
-                        <th width="8%">응답자</th>
-                        <th width="6%">연령대</th>
-                        <th width="6%">Q1</th>
-                        <th width="6%">Q2</th>
-                        <th width="6%">Q3</th>
-                        <th width="6%">Q4</th>
-                        <th width="6%">Q5</th>
-                        <th width="6%">Q6</th>
-                        <th width="6%">Q7</th>
-                        <th width="6%">Q8</th>
-                        <th width="6%">Q9</th>
-                        <th width="6%">Q10</th>
+                        <th width="12%">응답일</th>
+                        <th width="12%">응답자</th>
+                        <th width="6%">성별</th>
+                        <th width="7%">연령대</th>
+                        <th width="4%">Q1</th>
+                        <th width="4%">Q2</th>
+                        <th width="4%">Q3</th>
+                        <th width="4%">Q4</th>
+                        <th width="4%">Q5</th>
+                        <th width="4%">Q6</th>
+                        <th width="4%">Q7</th>
+                        <th width="4%">Q8</th>
+                        <th width="4%">Q9</th>
+                        <th width="4%">Q10</th>
                         <th width="6%">평균</th>
-                        <th width="18%">의견</th>
+                        <th width="17%">의견</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1339,6 +1353,7 @@ function displayDetailedResults(results, uniqueKey) {
             <tr>
                 <td><code>${submittedDate}</code></td>
                 <td><code>${result.respondent_name}</code></td>
+                <td>${result.gender}</td>
                 <td>${result.age_group}</td>
                 <td>${result.q1_rating}</td>
                 <td>${result.q2_rating}</td>
@@ -1362,15 +1377,15 @@ function displayDetailedResults(results, uniqueKey) {
         </div>
 
         <div style="text-align: right">
+          <br />
           <button class="btn" onclick="downloadXLSData('${educationInfo.center_name}')">
             ${educationInfo.center_name} 전체 응답 다운로드
           </button>
           <br />위에 표시된 내용 말고 전체 데이터를 액셀파일로 다운로드받습니다.
         </div>
-        <div id="ResultAlertDiv"></div>
       `;
 
-    surveyPage.innerHTML = html;
+    surveyDetailDiv.innerHTML = html;
 }
 
 // 필터링된 데이터 다운로드 함수
