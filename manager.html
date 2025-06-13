@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KCMF 강의평가 설문관리</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
       * {
         margin: 0;
@@ -411,8 +412,11 @@ supabase에서 아래 복사 붙여넣기 해라.. blah blah
           </div>
         </div>
 
-        <!-- 응답 내역 화면 -->
-        <div id="survey" class="page"></div>
+        <!-- 관리자 화면3: 응답 내역 -->
+        <div id="survey" class="page">
+
+
+        </div>
       </div>
     </div>
 
@@ -1356,9 +1360,53 @@ function displayDetailedResults(results, uniqueKey) {
                 </tbody>
             </table>
         </div>
-    `;
+
+        <div style="text-align: right">
+          <button class="btn" onclick="downloadXLSData('${educationInfo.center_name}')">
+            ${educationInfo.center_name} 전체 응답 다운로드
+          </button>
+          <br />위에 표시된 내용 말고 전체 데이터를 액셀파일로 다운로드받습니다.
+        </div>
+        <div id="ResultAlertDiv"></div>
+      `;
 
     surveyPage.innerHTML = html;
+}
+
+// 필터링된 데이터 다운로드 함수
+// downloadFilteredDataAsXLS('센터명', { instructer_name: '아무개', agegroup: '10대' })
+async function downloadXLSData(center_name, filters = {}) {
+    try {
+        const ResultAlertDiv = document.getElementById("ResultAlertDiv");
+        let query = supabase.from('survey_results').select('*');
+        if (center_name) {
+            query = query.ilike('center_name', `%${center_name}%`);
+        }
+        // 필터 적용
+        Object.entries(filters).forEach(([column, value]) => {
+            query = query.eq(column, value)
+        })
+
+        const { data, error } = await query
+        if (error) {
+          ResultAlertDiv.innerHTML = `<div class="alert alert-error">데이터 조회 오류: ${error.message}</div>`;
+          return
+        }
+        if (!data || data.length === 0) {
+          ResultAlertDiv.innerHTML = `<div class="alert alert-error">조건에 맞는 데이터가 없습니다: ${error.message}</div>`;
+          return
+        }
+        
+        const workbook = XLSX.utils.book_new()
+        const worksheet = XLSX.utils.json_to_sheet(data)
+        XLSX.utils.book_append_sheet(workbook, worksheet, center_name)
+        
+        const downloadFileName = `${center_name}_설문응답_${new Date().toISOString().split('T')[0]}.xlsx`
+        XLSX.writeFile(workbook, downloadFileName)
+        
+    } catch (error) {
+      ResultAlertDiv.innerHTML = `<div class="alert alert-error">다운로드 오류: ${error.message}</div>`;
+    }
 }
 
     </script>
