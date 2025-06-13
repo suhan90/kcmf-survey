@@ -517,10 +517,6 @@ $$;
             </div>
           </div>
 
-          <div
-            id="surveyCount"
-            style="margin-bottom: 10px; font-weight: bold"
-          ></div>
           <div id="surveyResults" class="scrollable-list">
             <div class="loading">
               <div class="spinner"></div>
@@ -1342,7 +1338,7 @@ async function loadSurveyResults(filters = {}) {
         if (error) throw error;
 
         currentSurveyResults = currentSurveyResults.concat(data);
-        displaySurveyResults(currentSurveyResults, null, surveyPage === 0);
+        displaySurveyResults(currentSurveyResults, surveyPage === 0);
 
         // 통계는 이미 로드했으므로 스킵
         
@@ -1376,13 +1372,9 @@ function handleSurveyScroll() {
     }
 }
 
-// 응답 내역 표시 (검색 건수 업데이트 포함)
-// displaySurveyResults(currentSurveyResults, count, surveyPage === 0);
-function displaySurveyResults(results, totalCount, isInitialRender = false) {
+// 응답 내역 표시
+function displaySurveyResults(results, isInitialRender = false) {
     const surveyResultsDiv = document.getElementById('surveyResults');
-    const surveyCountDiv = document.getElementById('surveyCount');
-
-    surveyCountDiv.textContent = `총 ${totalCount}건의 설문 응답이 검색되었습니다.`;
 
     if (results.length === 0) {
         surveyResultsDiv.innerHTML = '<div class="alert alert-info">응답 내역이 없습니다.</div>';
