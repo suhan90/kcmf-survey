@@ -420,7 +420,54 @@ CREATE POLICY "모두 추가 가능" ON survey_results FOR INSERT WITH CHECK (tr
 CREATE POLICY "인증사용자는 자기 데이터만 수정 가능" ON education_info FOR ALL USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() ) WITH CHECK ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
 CREATE POLICY "인증사용자는 전체 데이터 수정 가능" ON survey_results FOR ALL USING ( auth.uid() is not null) with check (auth.uid() is not null);
 
-5. 설치 후 이 화면 아래의 '연결 테스트' 버튼을 눌러 DB 접속이 되는지 확인할 수 있음.
+5. supabase에서 설문 통계 속도 향상을 위해  함수 생성
+
+-- Supabase SQL Editor에서 실행할 함수
+CREATE OR REPLACE FUNCTION get_survey_stats(
+  center_filter TEXT DEFAULT NULL,
+  instructor_filter TEXT DEFAULT NULL,
+  education_filter TEXT DEFAULT NULL
+)
+RETURNS TABLE(
+  total_responses BIGINT,
+  avg_rating NUMERIC(3,1),
+  unique_educations BIGINT
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  WITH filtered_results AS (
+    SELECT 
+      unique_key, center_name, instructor_name, education_name,
+      q1_rating, q2_rating, q3_rating, q4_rating, q5_rating,
+      q6_rating, q7_rating, q8_rating, q9_rating, q10_rating
+    FROM survey_results
+    WHERE 
+      (center_filter IS NULL OR center_name ILIKE '%' || center_filter || '%')
+      AND (instructor_filter IS NULL OR instructor_name ILIKE '%' || instructor_filter || '%')
+      AND (education_filter IS NULL OR education_name ILIKE '%' || education_filter || '%')
+  ),
+  stats AS (
+    SELECT 
+      COUNT(*) as total_count,
+      AVG((q1_rating + q2_rating + q3_rating + q4_rating + q5_rating + 
+           q6_rating + q7_rating + q8_rating + q9_rating + q10_rating) / 10.0) as average_rating
+    FROM filtered_results
+  ),
+  unique_count AS (
+    SELECT COUNT(DISTINCT unique_key) as unique_edu_count
+    FROM filtered_results
+  )
+  SELECT 
+    stats.total_count,
+    ROUND(stats.average_rating, 1),
+    unique_count.unique_edu_count
+  FROM stats, unique_count;
+END;
+$$;
+
+6. 설치 후 이 화면 아래의 '연결 테스트' 버튼을 눌러 DB 접속이 되는지 확인할 수 있음.
     </textarea>
             <button class="btn" onclick="testConnection()">연결 테스트</button>
             <div id="connectionStatus"></div>
@@ -1140,36 +1187,142 @@ async function deleteEducation(id, unique_key) {
     }
 }
 
-// 설문 결과 로드 (검색 기능 및 페이징 포함)
+// 통계 업데이트 함수(차선책: DB에서 집계 계산)
+async function loadSurveyStats(filters = {}) {
+    if (!supabase) return;
+    try {
+        // 1. 전체 응답 수와 평균 점수 계산
+        let statsQuery = supabase
+            .from('survey_results')
+            .select(`
+                q1_rating,
+                q2_rating,
+                q3_rating,
+                q4_rating,
+                q5_rating,
+                q6_rating,
+                q7_rating,
+                q8_rating,
+                q9_rating,
+                q10_rating
+            `, { count: 'exact' });
+
+        // 검색 조건 적용
+        if (filters.center) {
+            statsQuery = statsQuery.ilike('center_name', `%${filters.center}%`);
+        }
+        if (filters.instructor) {
+            statsQuery = statsQuery.ilike('instructor_name', `%${filters.instructor}%`);
+        }
+        if (filters.education) {
+            statsQuery = statsQuery.ilike('education_name', `%${filters.education}%`);
+        }
+
+        const { data: statsData, error: statsError, count: totalCount } = await statsQuery;
+        if (statsError) throw statsError;
+
+        // 2. 고유 교육과정 수 계산 (DB에서 distinct 사용)
+        let uniqueQuery = supabase
+            .from('survey_results')
+            .select('unique_key', { count: 'exact' });
+
+        // 동일한 검색 조건 적용
+        if (filters.center) {
+            uniqueQuery = uniqueQuery.ilike('center_name', `%${filters.center}%`);
+        }
+        if (filters.instructor) {
+            uniqueQuery = uniqueQuery.ilike('instructor_name', `%${filters.instructor}%`);
+        }
+        if (filters.education) {
+            uniqueQuery = uniqueQuery.ilike('education_name', `%${filters.education}%`);
+        }
+
+        const { data: uniqueData, error: uniqueError } = await uniqueQuery;
+        if (uniqueError) throw uniqueError;
+
+        // 클라이언트에서 고유값 계산 (이 부분만 클라이언트에서 처리)
+        const uniqueEducations = new Set();
+        uniqueData.forEach(item => {
+            uniqueEducations.add(`${item.unique_key}`);
+        });
+
+        // 평균 점수 계산 (클라이언트에서 - 하지만 데이터량이 훨씬 적음)
+        let totalScore = 0;
+        if (statsData.length > 0) {
+            statsData.forEach(result => {
+                totalScore += (result.q1_rating + result.q2_rating + result.q3_rating + 
+                             result.q4_rating + result.q5_rating + result.q6_rating + 
+                             result.q7_rating + result.q8_rating + result.q9_rating + 
+                             result.q10_rating) / 10;
+            });
+        }
+
+        // 통계 업데이트
+        document.getElementById('totalResponses').textContent = totalCount;
+        document.getElementById('avgRating').textContent = 
+            statsData.length > 0 ? (totalScore / statsData.length).toFixed(1) : '0.0';
+        document.getElementById('uniqueEducations').textContent = uniqueEducations.size;
+
+    } catch (error) {
+        console.error('차선책 통계 로딩 실패:', error);
+    }
+}
+
+// 통계 업데이트 함수 (최적화 버전 - PostgreSQL의 RPC 함수 사용)
+async function loadSurveyStatsOptimized(filters = {}) {
+    if (!supabase) return;
+    try {
+        // RPC를 사용하여 서버에서 모든 계산 수행
+        const { data, error } = await supabase.rpc('get_survey_stats', {
+            center_filter: filters.center || null,
+            instructor_filter: filters.instructor || null,
+            education_filter: filters.education || null
+        });
+        if (error) throw error;
+
+        // 서버에서 계산된 결과 직접 사용
+        document.getElementById('totalResponses').textContent = data[0].total_responses;
+        document.getElementById('avgRating').textContent = data[0].avg_rating;
+        document.getElementById('uniqueEducations').textContent = data[0].unique_educations;
+
+    } catch (error) {
+        console.error('최선책 통계 로딩 실패:', error);
+        // RPC 함수가 없는 경우 fallback (위의 차선책 사용)
+        await loadSurveyStats(filters);
+    }
+}
+
+// 개선된 메인 로딩 함수
 async function loadSurveyResults(filters = {}) {
     if (surveyIsLoading) return;
     surveyIsLoading = true;
 
     if (!supabase) {
-        document.getElementById('surveyResults').innerHTML = '<div class="alert alert-error">먼저 Supabase에 연결해주세요.</div>';
+        document.getElementById('surveyResults').innerHTML = 
+            '<div class="alert alert-error">먼저 Supabase에 연결해주세요.</div>';
         return;
     }
 
     const surveyResultsDiv = document.getElementById('surveyResults');
-    const loadingDiv = surveyResultsDiv.querySelector('.loading');
-    if (loadingDiv) loadingDiv.style.display = 'block';
-
-    // 검색 시 또는 첫 로드 시 currentSurveyResults 초기화
+    
+    // 검색 시 또는 첫 로드 시 초기화
     if (surveyPage === 0) {
         currentSurveyResults = [];
-        surveyResultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>설문 결과를 불러오는 중...</p></div>';
+        surveyResultsDiv.innerHTML = 
+            '<div class="loading"><div class="spinner"></div><p>설문 결과를 불러오는 중...</p></div>';
+        
+        // 통계는 별도로 먼저 로드 (빠른 응답)
+        loadSurveyStatsOptimized(filters);
     }
 
-    // 이미 로딩 중인지 확인하여 중복 요청 방지
-    if (window.isLoadingSurveys) {
-        return;
-    }
+    if (window.isLoadingSurveys) return;
     window.isLoadingSurveys = true;
 
     try {
-        let query = supabase.from('survey_results').select('*', { count: 'exact' });
+        // 목록 표시용 데이터만 로드 (통계 계산 제외)
+        let query = supabase.from('survey_results').select('*');
 
-        // 검색 조건 추가 (filters 객체 사용)
+        // 검색 조건 추가
         if (filters.center) {
             query = query.ilike('center_name', `%${filters.center}%`);
         }
@@ -1185,28 +1338,29 @@ async function loadSurveyResults(filters = {}) {
         const to = from + recordsPerPage - 1;
         query = query.order('submitted_at', { ascending: false }).range(from, to);
 
-        const { data, error, count } = await query;
+        const { data, error } = await query;
         if (error) throw error;
 
-        currentSurveyResults = currentSurveyResults.concat(data); // 새로 불러온 데이터를 기존 데이터에 추가
+        currentSurveyResults = currentSurveyResults.concat(data);
+        displaySurveyResults(currentSurveyResults, null, surveyPage === 0);
 
-        displaySurveyResults(currentSurveyResults, count, surveyPage === 0);
-        updateStats(currentSurveyResults, count);
-
+        // 통계는 이미 로드했으므로 스킵
+        
+        const loadingDiv = surveyResultsDiv.querySelector('.loading');
         if (loadingDiv) loadingDiv.style.display = 'none';
 
-        // 스크롤 로드를 위한 이벤트 리스너 추가 (최초 로드 시에만)
+        // 스크롤 이벤트 리스너 설정
         if (!surveyResultsDiv.hasScrollListener) {
             surveyResultsDiv.addEventListener('scroll', handleSurveyScroll);
             surveyResultsDiv.hasScrollListener = true;
         }
-        window.isLoadingSurveys = false; // 로딩 상태 해제
 
     } catch (error) {
-        surveyResultsDiv.innerHTML = `<div class="alert alert-error">로딩 실패: ${error.message}</div>`;
-        if (loadingDiv) loadingDiv.style.display = 'none';
+        surveyResultsDiv.innerHTML = 
+            `<div class="alert alert-error">로딩 실패: ${error.message}</div>`;
     } finally {
         surveyIsLoading = false;
+        window.isLoadingSurveys = false;
     }
 }
 
@@ -1221,35 +1375,6 @@ function handleSurveyScroll() {
         loadSurveyResults();
     }
 }
-
-// 통계 업데이트
-function updateStats(results, totalCount) {
-    const totalResponses = totalCount || results.length;
-    let totalScore = 0;
-    // 고유한 교육 과정 수 계산 (센터명 + 강사명 + 교육명 조합으로 중복 제거)
-    const uniqueEducations = new Set();
-    // 전체 교육 수: 교육과정 검색 currentEducations.length
-
-    if (results.length > 0) {
-        results.forEach(
-          result => {
-            totalScore += (result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
-                result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10;
-
-            // 고유한 교육 과정 식별 (센터명 + 강사명 + 교육명 조합)
-            const educationKey = `${result.center_name}|${result.instructor_name}|${result.education_name}`;
-            uniqueEducations.add(educationKey);
-          }
-        );
-
-    }
-    const uniqueEducationCount = uniqueEducations.size;
-
-    document.getElementById('totalResponses').textContent = totalResponses;
-    document.getElementById('avgRating').textContent = results.length > 0 ? (totalScore / results.length).toFixed(1) : '0.0';
-    document.getElementById('uniqueEducations').textContent = uniqueEducationCount;
-}
-
 
 // 응답 내역 표시 (검색 건수 업데이트 포함)
 // displaySurveyResults(currentSurveyResults, count, surveyPage === 0);
