@@ -1291,8 +1291,8 @@ function displayDetailedResults(results, uniqueKey) {
         <div style="margin-bottom: 20px;">
             <h2>📝 응답 상세 내역</h2>
             <div class="alert alert-info">
-                <strong>교육 정보:</strong> ${educationInfo.center_name} | ${educationInfo.instructor_name} | ${educationInfo.education_name}<br>
-                <strong>고유키:</strong> ${uniqueKey}<br>
+                <strong>설문번호(고유키):</strong> ${uniqueKey} | <strong>센터:</strong> ${educationInfo.center_name} <br>
+                <strong>강사:</strong> ${educationInfo.instructor_name} | ${educationInfo.education_name} } <strong>교육명:</strong> ${educationInfo.education_name}<br>
                 <strong>총 응답 수:</strong> ${totalResponses}건 | <strong>평균 만족도:</strong> ${avgScore}점
             </div>
         </div>
