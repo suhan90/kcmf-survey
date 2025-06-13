@@ -1151,7 +1151,6 @@ function updateStats(results, totalCount) {
 
             // 고유한 교육 과정 식별 (센터명 + 강사명 + 교육명 조합)
             const educationKey = `${result.center_name}|${result.instructor_name}|${result.education_name}`;
-            console.log(educationKey);
             uniqueEducations.add(educationKey);
           }
         );
@@ -1202,14 +1201,18 @@ function displaySurveyResults(results, totalCount, isInitialRender = false) {
 
         html += `
           <tr>
-          <td><code>${new Date(result.submitted_at).toLocaleDateString()}</code></td>
+          <td><code>${new Date(result.submitted_at).toLocaleDateString('ko-KR', {
+            year: '2-digit',
+            month: '2-digit',
+            day: '2-digit'
+        })}</code></td>
           <td><code>${result.center_name}</code></td>
           <td>${result.instructor_name}</td>
           <td>${result.education_name}</td>
           <td><code>${result.respondent_name}</code></td>
           <td>${result.age_group}</td>
           <td><strong>${avgScore}</strong></td>
-          <td><button class="btn" onclick="showResultDetail(${result.id})" style="padding: 5px 10px; font-size: 0.8rem;">상세</button></td>
+          <td><button class="btn" onclick="showResultDetail('${result.unique_key}')" style="padding: 5px 10px; font-size: 0.8rem;">상세</button></td>
           </tr>
         `;
       }
@@ -1217,6 +1220,145 @@ function displaySurveyResults(results, totalCount, isInitialRender = false) {
 
     html += '</tbody></table>';
     surveyResultsDiv.innerHTML = html;
+}
+
+// 응답 상세 내역 표시 함수
+async function showResultDetail(uniqueKey) {
+    if (!supabase) {
+        showAlert('먼저 Supabase에 연결해주세요.', 'error');
+        return;
+    }
+
+    // 응답내역 탭으로 이동
+    showPage('survey');
+    
+    const surveyPage = document.getElementById('survey');
+    surveyPage.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>응답 내역을 불러오는 중...</p>
+        </div>
+    `;
+
+    try {
+        // unique_key로 survey_results 테이블에서 모든 응답 조회
+        const { data, error } = await supabase
+            .from('survey_results')
+            .select('*')
+            .eq('unique_key', uniqueKey)
+            .order('submitted_at', { ascending: false });
+
+        if (error) throw error;
+
+        displayDetailedResults(data, uniqueKey);
+
+    } catch (error) {
+        surveyPage.innerHTML = `
+            <div class="alert alert-error">
+                데이터 로딩 실패: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// 상세 결과 표시 함수
+function displayDetailedResults(results, uniqueKey) {
+    const surveyPage = document.getElementById('survey');
+    
+    if (results.length === 0) {
+        surveyPage.innerHTML = `
+            <div class="alert alert-info">
+                <h3>응답 내역</h3>
+                <p>고유키 "${uniqueKey}"에 대한 응답이 없습니다.</p>
+            </div>
+        `;
+        return;
+    }
+
+    // 교육 정보 (첫 번째 응답에서 추출)
+    const educationInfo = results[0];
+    
+    // 통계 계산
+    const totalResponses = results.length;
+    let totalScore = 0;
+    results.forEach(result => {
+        totalScore += (result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
+            result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10;
+    });
+    const avgScore = (totalScore / totalResponses).toFixed(1);
+
+    let html = `
+        <div style="margin-bottom: 20px;">
+            <h2>📝 응답 상세 내역</h2>
+            <div class="alert alert-info">
+                <strong>교육 정보:</strong> ${educationInfo.center_name} | ${educationInfo.instructor_name} | ${educationInfo.education_name}<br>
+                <strong>고유키:</strong> ${uniqueKey}<br>
+                <strong>총 응답 수:</strong> ${totalResponses}건 | <strong>평균 만족도:</strong> ${avgScore}점
+            </div>
+        </div>
+
+        <div class="scrollable-list">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th width="8%">응답일</th>
+                        <th width="8%">응답자</th>
+                        <th width="6%">연령대</th>
+                        <th width="6%">Q1</th>
+                        <th width="6%">Q2</th>
+                        <th width="6%">Q3</th>
+                        <th width="6%">Q4</th>
+                        <th width="6%">Q5</th>
+                        <th width="6%">Q6</th>
+                        <th width="6%">Q7</th>
+                        <th width="6%">Q8</th>
+                        <th width="6%">Q9</th>
+                        <th width="6%">Q10</th>
+                        <th width="6%">평균</th>
+                        <th width="18%">의견</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    results.forEach(result => {
+        const avgScore = ((result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
+            result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10).toFixed(1);
+        
+        const submittedDate = new Date(result.submitted_at).toLocaleDateString('ko-KR', {
+            year: '2-digit',
+            month: '2-digit',
+            day: '2-digit'
+        });
+
+        html += `
+            <tr>
+                <td><code>${submittedDate}</code></td>
+                <td><code>${result.respondent_name}</code></td>
+                <td>${result.age_group}</td>
+                <td>${result.q1_rating}</td>
+                <td>${result.q2_rating}</td>
+                <td>${result.q3_rating}</td>
+                <td>${result.q4_rating}</td>
+                <td>${result.q5_rating}</td>
+                <td>${result.q6_rating}</td>
+                <td>${result.q7_rating}</td>
+                <td>${result.q8_rating}</td>
+                <td>${result.q9_rating}</td>
+                <td>${result.q10_rating}</td>
+                <td><strong>${avgScore}</strong></td>
+                <td style="font-size: 0.9em;">${result.additional_comments || '-'}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    surveyPage.innerHTML = html;
 }
 
     </script>
