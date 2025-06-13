@@ -575,8 +575,10 @@ async function showPage(pageId) {
     const activeTab = document.querySelector(`.nav-tab[data-page="${pageId}"]`);
     if (activeTab) activeTab.classList.add('active');
 
-    // 페이지별 초기 화면 로딩
+    // 페이지별 초기 화면 로딩 (최초 진입 시애만)
     if (pageId === 'admin1') {
+      const searchUI = document.getElementById('education-search-ui');
+      if (!searchUI.hasChildNodes()) {
         educationPage = 0;
         currentEducations = [];
         // 기존 스크롤 리스너 제거 (중복 방지)
@@ -598,9 +600,13 @@ async function showPage(pageId) {
                 currentEducations = [];
                 loadEducations();
             }
-        );
-        loadEducations();
+          );
+          loadEducations();
+      }
     } else if (pageId === 'admin2') {
+      // 검색 인터페이스가 없을 때만 생성 (최초 진입)
+      const searchUI = document.getElementById('survey-search-ui');
+      if (!searchUI.hasChildNodes()) {
         surveyPage = 0;
         currentSurveyResults = [];
         // 기존 스크롤 리스너 제거 (중복 방지)
@@ -624,6 +630,7 @@ async function showPage(pageId) {
             }
         );
         loadSurveyResults();
+      }
     } else {
         // 다른 페이지로 이동할 때 상태 정리
         const listDiv = document.getElementById('educationList');
