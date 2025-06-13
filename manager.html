@@ -500,7 +500,6 @@ CREATE POLICY "인증사용자는 전체 데이터 수정 가능" ON survey_resu
         <div class="form-group">
           <label>센터명:</label>
           <select id="modalCenter">
-            <option value="">--전체--</option>
             <option value="부산센터">부산센터</option>
             <option value="경남센터">경남센터</option>
             <option value="울산센터">울산센터</option>
@@ -776,7 +775,7 @@ function createSearchInterface(containerId, onSearch, onReset) {
         <div class="form-group">
           <label>센터명:</label>
           <!--<input type="text" class="search-center" placeholder="센터명 입력">-->
-          <select id="modalCenter" class="search-center">
+          <select class="search-center">
             <option value="">--전체--</option>
             <option value="부산센터">부산센터</option>
             <option value="경남센터">경남센터</option>
@@ -913,8 +912,8 @@ function displayEducations(educations, totalCount, isInitialRender = false) {
     <th width="11%">강사명</th>
     <th width="28%">교육명</th>
     <th width="14%">설문기간</th>
-    <th width="16%">설문 URL<br/>(고유키)</th>
-    <th width="19%">작업</th>
+    <th width="17%">설문 URL<br/>(고유키)</th>
+    <th width="18%">작업</th>
     </tr>
     </thead>
     <tbody>
@@ -994,7 +993,19 @@ function openEducationModal(mode, id = null) {
             return;
         }
         editingEducationId = id;
-        document.getElementById('modalCenter').value = education.center_name;
+        // document.getElementById('modalCenter').value = education.center_name;
+        const modalCenter = document.getElementById('modalCenter');
+        console.log(education);
+        modalCenter.value = education.center_name;
+        if (modalCenter.value !== education.center_name) {
+            for (let i = 0; i < modalCenter.options.length; i++) {
+                if (modalCenter.options[i].value === education.center_name) {
+                    modalCenter.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        console.log(modalCenter.value, education.center_name);
         document.getElementById('modalInstructor').value = education.instructor_name;
         document.getElementById('modalEducation').value = education.education_name;
         document.getElementById('modalStartDate').value = education.start_date;
