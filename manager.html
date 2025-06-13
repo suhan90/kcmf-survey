@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KCMF 강의평가 설문관리</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Arial", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(45deg, #4f46e5, #7c3aed);
+        color: white;
+        padding: 30px;
+        text-align: center;
+        position: relative;
+      }
+      .header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+      .header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+      }
+
+      .nav-tabs {
+        display: flex;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .nav-tab {
+        flex: 1;
+        padding: 15px 20px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        color: #64748b;
+      }
+      .nav-tab.active {
+        background: white;
+        color: #4f46e5;
+        border-bottom: 3px solid #4f46e5;
+        font-weight: bold;
+      }
+      .nav-tab:hover {
+        background: #e2e8f0;
+      }
+
+      .content {
+        padding: 30px;
+        min-height: 400px;
+      }
+
+      .page {
+        display: none;
+      }
+
+      .page.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #374151;
+      }
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.3s ease;
+      }
+      .form-group input:focus,
+      .form-group select:focus,
+      .form-group textarea:focus {
+        outline: none;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+      }
+
+      .btn {
+        background: linear-gradient(45deg, #4f46e5, #7c3aed);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+      }
+      .btn-secondary {
+        background: #6b7280;
+      }
+      .btn-danger {
+        background: #dc2626;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      .table th,
+      .table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .table th {
+        background: #f8fafc;
+        font-weight: bold;
+        color: #374151;
+      }
+      .table tr:hover {
+        background: #f8fafc;
+      }
+
+      .config-section {
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .config-section h3 {
+        color: #4f46e5;
+        margin-bottom: 15px;
+      }
+      .config-section input,
+      .config-section select,
+      .config-section textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.3s ease;
+      }
+
+      .alert {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .alert-success {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .alert-error {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .alert-info {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+      }
+
+      .spinner {
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid #4f46e5;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .stat-card {
+        background: linear-gradient(45deg, #4f46e5, #7c3aed);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+      }
+      .modal-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+      }
+
+      .close {
+        float: right;
+        font-size: 24px;
+        cursor: pointer;
+        color: #6b7280;
+      }
+      .close:hover {
+        color: #374151;
+      }
+
+      /* 스크롤 가능한 리스트 컨테이너 스타일 */
+      .scrollable-list {
+        max-height: 600px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎯 KCMF 강의평가 관리</h1>
+        <p>시청자미디어재단 직원용 시스템</p>
+      </div>
+
+      <div class="nav-tabs">
+        <button
+          class="nav-tab active"
+          data-page="config"
+          onclick="showPage('config')"
+        >
+          🔧로그인
+        </button>
+        <button class="nav-tab" data-page="admin1" onclick="showPage('admin1')">
+          📋교육 관리
+        </button>
+        <button class="nav-tab" data-page="admin2" onclick="showPage('admin2')">
+          📊설문 현황
+        </button>
+        <button class="nav-tab" data-page="survey" onclick="showPage('survey')">
+          📝응답 내역
+        </button>
+      </div>
+
+      <div class="content">
+        <!-- DB 설정 페이지 -->
+        <div id="config" class="page active">
+          <div class="config-section">
+            <h3>로그인</h3>
+            <div id="loginform" class="form-group">
+              <input type="email" id="login_email" placeholder="이메일" />
+              <input
+                type="password"
+                id="login_password"
+                placeholder="비밀번호"
+              />
+              <button id="login_btn" class="btn" onclick="signIn()">
+                로그인
+              </button>
+              <button
+                id="logout_btn"
+                class="btn btn-secondary"
+                onclick="signOut()"
+              >
+                로그아웃
+              </button>
+            </div>
+            <div id="authStatus" class="alert alert-info"></div>
+          </div>
+
+          <div class="config-section">
+            <h3>DB 설정</h3>
+            <textarea>
+설치 및 사용방법 알려주겠다.
+supabase에서 아래 복사 붙여넣기 해라.. blah blah
+키 발급 받고 소스코드에 키 입력해라.. blah blah
+    </textarea
+            >
+            <button class="btn" onclick="testConnection()">연결 테스트</button>
+            <div id="connectionStatus"></div>
+          </div>
+        </div>
+
+        <!-- 관리자 화면1: 교육 관리 -->
+        <div id="admin1" class="page">
+          <h2>📋 교육 검색</h2>
+          <div id="education-search-ui"></div>
+          <div style="text-align: right">
+            <button class="btn" onclick="openEducationModal('add')">
+              신규 등록
+            </button>
+          </div>
+
+          <div
+            id="educationCount"
+            style="margin-bottom: 10px; font-weight: bold"
+          ></div>
+          <div id="educationList" class="scrollable-list">
+            <div class="loading">
+              <div class="spinner"></div>
+              <p>데이터를 불러오는 중...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 관리자 화면2: 설문 현황 -->
+        <div id="admin2" class="page">
+          <h2>📊 설문 검색</h2>
+          <div id="survey-search-ui"></div>
+
+          <h2>📊 검색 결과</h2>
+          <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+              <div class="stat-number" id="uniqueEducations">0</div>
+              <div>교육 과정</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="totalResponses">0</div>
+              <div>총 응답 수</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="avgRating">0.0</div>
+              <div>평균 만족도</div>
+            </div>
+          </div>
+
+          <div
+            id="surveyCount"
+            style="margin-bottom: 10px; font-weight: bold"
+          ></div>
+          <div id="surveyResults" class="scrollable-list">
+            <div class="loading">
+              <div class="spinner"></div>
+              <p>설문 결과를 불러오는 중...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 응답 내역 화면 -->
+        <div id="survey" class="page"></div>
+      </div>
+    </div>
+
+    <!-- 교육정보 모달 -->
+    <div id="educationModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeEducationModal()">&times;</span>
+        <h3 id="modalTitle">교육 정보</h3>
+        <div class="form-group">
+          <label>센터명:</label>
+          <select id="modalCenter">
+            <option value="">--전체--</option>
+            <option value="부산센터">부산센터</option>
+            <option value="경남센터">경남센터</option>
+            <option value="울산센터">울산센터</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>강사명:</label>
+          <input type="text" id="modalInstructor" />
+        </div>
+        <div class="form-group">
+          <label>교육명:</label>
+          <input type="text" id="modalEducation" />
+        </div>
+        <div class="form-group">
+          <label>설문기간:</label>
+          <input type="text" id="modalStartDate" /> ~
+          <input type="text" id="modalEndDate" />
+        </div>
+        <div style="margin-top: 20px">
+          <button
+            class="btn"
+            id="modalActionButton"
+            onclick="handleEducationAction()"
+          >
+            등록
+          </button>
+          <button class="btn btn-secondary" onclick="closeEducationModal()">
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+// 설문파일 위치
+// var survey_url = 'https://kcmf.or.kr/survey.html';
+var survey_url = String(window.location.href).replace('/manager.html', '/survey.html');
+
+// DB 접속 및 생성
+var supabase = supabase.createClient('https://fnxmyayfosjwuvsxbabm.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZueG15YXlmb3Nqd3V2c3hiYWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk2MTg2NzcsImV4cCI6MjA2NTE5NDY3N30.rAldXcD4_tsstfd9xHzKw3QgIHBrHvaFkBv6TJRVhjA')
+
+// Supabase 연결 테스트
+async function testConnection() {
+    try {
+        const { data, error } = await supabase.from('education_info').select('count').limit(1);
+        if (error) throw error;
+        showAlert('데이터베이스 연결 테스트 성공!', 'success');
+    } catch (error) {
+        showAlert('데이터베이스 테스트 실패: ' + error.message, 'error');
+    }
+}
+
+// 알림 표시
+function showAlert(message, type) {
+    const statusDiv = document.getElementById('connectionStatus');
+    statusDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    setTimeout(() => {
+        statusDiv.innerHTML = '';
+    }, 5000);
+}
+
+// 로그인 상태에 따라 로그인 활성화/비활성화
+function updateLoginUI(isLoggedIn = false) {
+    const emailInput = document.getElementById('login_email');
+    const passwordInput = document.getElementById('login_password');
+    const loginBtn = document.getElementById('login_btn');
+    const logoutBtn = document.getElementById('logout_btn');
+    if (isLoggedIn) {
+        emailInput.readOnly = true;
+        emailInput.style.backgroundColor = '#ddd';
+        passwordInput.readOnly = true;
+        passwordInput.style.backgroundColor = '#ddd';
+        loginBtn.className = 'btn btn-secondary';
+        logoutBtn.className = 'btn';
+    } else {
+        emailInput.readOnly = false;
+        emailInput.style.backgroundColor = 'white';
+        passwordInput.value = '';
+        passwordInput.readOnly = false;
+        passwordInput.style.backgroundColor = 'white';
+        loginBtn.className = 'btn';
+        logoutBtn.className = 'btn btn-secondary';
+    }
+}
+
+
+// 로그인 함수
+async function signIn() {
+    const email = document.getElementById('login_email').value;
+    const password = document.getElementById('login_password').value;
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+    });
+
+    if (error) {
+        document.getElementById('authStatus').innerText = '로그인 실패: ' + error.message;
+    } else {
+        document.getElementById('authStatus').innerText = '로그인 성공! 사용자 ID: ' + data.user.id;
+        updateLoginUI(true);
+        showPage('admin1');
+    }
+}
+
+// 로그아웃 함수
+async function signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        document.getElementById('authStatus').innerText = '로그아웃 실패: ' + error.message;
+    } else {
+        document.getElementById('authStatus').innerText = '로그아웃 되었습니다.';
+        updateLoginUI(false);
+    }
+}
+
+// 로그인 상태 변화 감지
+supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+        document.getElementById('authStatus').innerText = `로그인 상태: ${session.user.id}`;
+        updateLoginUI(true);
+        showPage('admin1');
+    } else {
+        document.getElementById('authStatus').innerText = '로그인 상태: 로그아웃됨';
+        updateLoginUI(false);
+        showPage('config');
+    }
+});
+
+// 페이지 전환
+async function showPage(pageId) {
+
+    // 로그인 상태 확인 (로그인 안했으면 설정 화면으로 이동)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.user) pageId = "config";
+
+    // 모든 페이지 숨기기
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+
+    // 모든 탭 비활성화
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // 선택된 페이지 표시
+    document.getElementById(pageId).classList.add('active');
+    const activeTab = document.querySelector(`.nav-tab[data-page="${pageId}"]`);
+    if (activeTab) activeTab.classList.add('active');
+
+    // 페이지별 초기 화면 로딩
+    if (pageId === 'admin1') {
+        educationPage = 0;
+        currentEducations = [];
+        // 기존 스크롤 리스너 제거 (중복 방지)
+        const listDiv = document.getElementById('educationList');
+        if (listDiv && listDiv.hasScrollListener) {
+            listDiv.removeEventListener('scroll', handleEducationScroll);
+            listDiv.hasScrollListener = false;
+        }
+        // 검색 인터페이스 생성
+        createSearchInterface(
+            'education-search-ui',
+            (filters) => { // 검색 콜백
+                educationPage = 0;
+                currentEducations = [];
+                loadEducations(filters);
+            },
+            () => { // 초기화 콜백
+                educationPage = 0;
+                currentEducations = [];
+                loadEducations();
+            }
+        );
+        loadEducations();
+    } else if (pageId === 'admin2') {
+        surveyPage = 0;
+        currentSurveyResults = [];
+        // 기존 스크롤 리스너 제거 (중복 방지)
+        const surveyDiv = document.getElementById('surveyResults');
+        if (surveyDiv && surveyDiv.hasScrollListener) {
+            surveyDiv.removeEventListener('scroll', handleSurveyScroll);
+            surveyDiv.hasScrollListener = false;
+        }
+        // 검색 인터페이스 생성
+        createSearchInterface(
+            'survey-search-ui',
+            (filters) => { // 검색 콜백
+                surveyPage = 0;
+                currentSurveyResults = [];
+                loadSurveyResults(filters);
+            },
+            () => { // 초기화 콜백
+                surveyPage = 0;
+                currentSurveyResults = [];
+                loadSurveyResults();
+            }
+        );
+        loadSurveyResults();
+    } else {
+        // 다른 페이지로 이동할 때 상태 정리
+        const listDiv = document.getElementById('educationList');
+        if (listDiv && listDiv.hasScrollListener) {
+            listDiv.removeEventListener('scroll', handleEducationScroll);
+            listDiv.hasScrollListener = false;
+        }
+        const surveyDiv = document.getElementById('surveyResults');
+        if (surveyDiv && surveyDiv.hasScrollListener) {
+            surveyDiv.removeEventListener('scroll', handleSurveyScroll);
+            surveyDiv.hasScrollListener = false;
+        }
+        window.isLoadingEducations = false;
+        window.isLoadingSurveys = false;
+    }
+}
+
+function generateUniqueKey(center, instructor) {
+    // 문자열 길이 기반 간단한 해시 (각 문자의 코드값 합산)
+    let hash = center.length + instructor.length;
+    for (let i = 0; i < center.length; i++) {
+        hash += center.charCodeAt(i);
+    }
+    for (let i = 0; i < instructor.length; i++) {
+        hash += instructor.charCodeAt(i);
+    }
+    // 36진법으로 변환하여 짧게 만들기
+    const hashStr = (hash % 1679616).toString(36); // 1679616 = 36^4, 최대 4자리
+    // 현재 시간에서 2000년을 빼버리면 남은 숫자가 줄어든다
+    const now = Date.now();
+    const year2000 = new Date('2000-01-01').getTime();
+    const timeStr = (now - year2000).toString(36);
+    return `${hashStr}${timeStr}`;
+}
+
+let editingEducationId = null; // 수정 모드일 때만 사용
+let modalMode = 'add'; // 교육 추가 수정 시 'add' 또는 'edit' 모드
+
+const recordsPerPage = 50; // 페이지당 레코드 수
+
+// 교육 관리 관련 전역 변수
+let educationPage = 0; 
+let educationIsLoading = false;
+let educationHasMore = true;
+let currentEducations = [];
+
+// 설문 현황 관련 전역 변수
+let surveyPage = 0;
+let surveyIsLoading = false;
+let surveyHasMore = true;
+let currentSurveyResults = [];
+
+/**
+ * 재사용 가능한 검색 UI를 생성하고 이벤트 리스너를 연결합니다.
+ * @param {string} containerId - 검색 UI가 삽입될 div의 ID
+ * @param {function} onSearch - '검색' 버튼 클릭 시 실행될 콜백 함수
+ * @param {function} onReset - '초기화' 버튼 클릭 시 실행될 콜백 함수
+ */
+function createSearchInterface(containerId, onSearch, onReset) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // 검색 UI의 HTML 구조
+    container.innerHTML = `
+    <div class="form-group" style="margin-top: 20px; margin-bottom: 20px; padding: 20px; background: #f8fafc; border-radius: 8px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+        <div class="form-group">
+          <label>센터명:</label>
+          <!--<input type="text" class="search-center" placeholder="센터명 입력">-->
+          <select id="modalCenter" class="search-center">
+            <option value="">--전체--</option>
+            <option value="부산센터">부산센터</option>
+            <option value="경남센터">경남센터</option>
+            <option value="울산센터">울산센터</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>강사명:</label>
+          <input type="text" class="search-instructor" placeholder="강사명 입력">
+        </div>
+        <div class="form-group">
+          <label>교육명:</label>
+          <input type="text" class="search-education" placeholder="교육명 입력">
+        </div>
+      </div>
+      <button class="btn search-btn">검색</button>
+      <button class="btn btn-secondary reset-btn">검색 초기화</button>
+    </div>
+    `;
+
+    // 생성된 UI 내의 요소에 이벤트 리스너 연결
+    const searchBtn = container.querySelector('.search-btn');
+    const resetBtn = container.querySelector('.reset-btn');
+    const centerInput = container.querySelector('.search-center');
+    const instructorInput = container.querySelector('.search-instructor');
+    const educationInput = container.querySelector('.search-education');
+
+    // 검색 버튼 클릭 이벤트
+    searchBtn.addEventListener('click', () => {
+        const filters = {
+            center: centerInput.value,
+            instructor: instructorInput.value,
+            education: educationInput.value,
+        };
+        onSearch(filters); // 전달받은 onSearch 콜백 함수 실행
+    });
+
+    // 초기화 버튼 클릭 이벤트
+    resetBtn.addEventListener('click', () => {
+        centerInput.value = '';
+        instructorInput.value = '';
+        educationInput.value = '';
+        onReset(); // 전달받은 onReset 콜백 함수 실행
+    });
+}
+
+// 교육 목록 로드 (검색 및 페이징 적용)
+async function loadEducations(filters = {}) {
+    if (educationIsLoading) return;
+    educationIsLoading = true;
+
+    if (!supabase) {
+        document.getElementById('educationList').innerHTML = '<div class="alert alert-error">먼저 Supabase에 연결해주세요.</div>';
+        return;
+    }
+
+    const listDiv = document.getElementById('educationList');
+    const loadingDiv = listDiv.querySelector('.loading');
+    if (loadingDiv) loadingDiv.style.display = 'block';
+
+    // 검색 시 또는 첫 로드 시 currentEducations 초기화
+    if (educationPage === 0) {
+        currentEducations = [];
+        listDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>데이터를 불러오는 중...</p></div>';
+    }
+
+    // 이미 로딩 중인지 확인하여 중복 요청 방지
+    if (window.isLoadingEducations) {
+        return;
+    }
+    window.isLoadingEducations = true;
+
+    let query = supabase.from('education_info').select('*', { count: 'exact' });
+
+    // 검색 조건 추가
+    if (filters.center) {
+        query = query.ilike('center_name', `%${filters.center}%`);
+    }
+    if (filters.instructor) {
+        query = query.ilike('instructor_name', `%${filters.instructor}%`);
+    }
+    if (filters.education) {
+        query = query.ilike('education_name', `%${filters.education}%`);
+    }
+
+    // 페이징 적용
+    const from = educationPage * recordsPerPage;
+    const to = from + recordsPerPage - 1;
+    query = query.order('created_at', { ascending: false }).range(from, to);
+
+    try {
+        const { data, error, count } = await query;
+        if (error) throw error;
+
+        currentEducations = currentEducations.concat(data); // 새로 불러온 데이터를 기존 데이터에 추가
+
+        displayEducations(currentEducations, count, educationPage === 0); // isInitialRender 플래그 추가
+
+        if (loadingDiv) loadingDiv.style.display = 'none';
+
+        // 스크롤 로드를 위한 이벤트 리스너 추가 (최초 로드 시에만)
+        if (!listDiv.hasScrollListener) {
+            listDiv.addEventListener('scroll', handleEducationScroll);
+            listDiv.hasScrollListener = true;
+        }
+        window.isLoadingEducations = false; // 로딩 상태 해제
+
+    } catch (error) {
+        document.getElementById('educationList').innerHTML = `<div class="alert alert-error">로딩 실패: ${error.message}</div>`;
+        if (loadingDiv) loadingDiv.style.display = 'none';
+
+    } finally {
+        educationIsLoading = false;
+    }
+}
+
+// 교육 목록 표시 (검색 건수 업데이트 포함)
+function displayEducations(educations, totalCount, isInitialRender = false) {
+    const listDiv = document.getElementById('educationList');
+    const educationCountDiv = document.getElementById('educationCount');
+
+    educationCountDiv.textContent = `총 ${totalCount}건의 교육 과정이 검색되었습니다.`;
+
+    if (educations.length === 0) {
+        listDiv.innerHTML = '<div class="alert alert-info">등록된 교육 과정이 없습니다.</div>';
+        return;
+    }
+
+    let html = `
+    <table class="table">
+    <thead>
+    <tr>
+    <th width="12%">센터</th>
+    <th width="11%">강사명</th>
+    <th width="28%">교육명</th>
+    <th width="14%">설문기간</th>
+    <th width="16%">설문 URL<br/>(고유키)</th>
+    <th width="19%">작업</th>
+    </tr>
+    </thead>
+    <tbody>
+    `;
+
+    educations.forEach(edu => {
+        html += `
+    <tr>
+    <td><code>${edu.center_name}</code></td>
+    <td>${edu.instructor_name}</td>
+    <td>${edu.education_name}</td>
+    <td><code>${edu.start_date}<br/>~${edu.end_date}</code></td>
+    <td><a href="${survey_url}#s=${edu.unique_key}" target="_blank" style="color: #4f46e5;">${edu.unique_key}</a></td>
+    <td>
+    <button class="btn" onclick="openEducationModal('edit', ${edu.id})" style="padding: 5px 10px; font-size: 0.8rem;">수정</button>
+    <button class="btn btn-danger" onclick="deleteEducation(${edu.id},'${edu.unique_key}')" style="padding: 5px 10px; font-size: 0.8rem;">삭제</button>
+    </td>
+    </tr>
+    `;
+    });
+
+    html += '</tbody></table>';
+    listDiv.innerHTML = html;
+}
+
+// 교육 스크롤 이벤트 핸들러
+function handleEducationScroll() {
+    const listDiv = document.getElementById('educationList');
+    // 이미 로딩 중이면 중복 실행 방지
+    if (window.isLoadingEducations) return;
+    // 스크롤이 끝에서 50px 정도까지 가면 추가 로드
+    if (listDiv.scrollTop + listDiv.clientHeight >= listDiv.scrollHeight - 50) {
+        educationPage++;
+        loadEducations();
+    }
+}
+
+// 교육 정보 모달 열기 (추가/수정 겸용)
+function openEducationModal(mode, id = null) {
+    modalMode = mode;
+    const modalTitle = document.getElementById('modalTitle');
+    const modalActionButton = document.getElementById('modalActionButton');
+
+    // 필드 초기화
+    document.getElementById('modalCenter').selectedIndex = 0;
+    document.getElementById('modalInstructor').value = '';
+    document.getElementById('modalEducation').value = '';
+    document.getElementById('modalStartDate').value = '';
+    document.getElementById('modalEndDate').value = '';
+    editingEducationId = null; // 초기화
+
+    if (mode === 'add') {
+        modalTitle.textContent = '새 교육 정보 등록';
+        modalActionButton.textContent = '등록';
+        modalActionButton.onclick = addEducation; // 등록 함수 연결
+        // 기본값으로 오늘 날짜와 4주후 날짜를 설정 (YYYY-MM-DD)
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작하므로 +1
+        const day = String(today.getDate()).padStart(2, '0');
+        document.getElementById('modalStartDate').value = `${year}-${month}-${day}`;
+        const fourWeeksLater = new Date();
+        fourWeeksLater.setDate(today.getDate() + 28); // 오늘 날짜에 28일 (4주) 더하기
+        const endYear = fourWeeksLater.getFullYear();
+        const endMonth = String(fourWeeksLater.getMonth() + 1).padStart(2, '0');
+        const endDay = String(fourWeeksLater.getDate()).padStart(2, '0');
+        document.getElementById('modalEndDate').value = `${endYear}-${endMonth}-${endDay}`;
+
+    } else if (mode === 'edit') {
+        modalTitle.textContent = '교육 정보 수정';
+        modalActionButton.textContent = '수정';
+        modalActionButton.onclick = updateEducation; // 수정 함수 연결
+
+        const education = currentEducations.find(edu => edu.id === id);
+        if (!education) {
+            showAlert('수정할 교육 정보를 찾을 수 없습니다.', 'error');
+            return;
+        }
+        editingEducationId = id;
+        document.getElementById('modalCenter').value = education.center_name;
+        document.getElementById('modalInstructor').value = education.instructor_name;
+        document.getElementById('modalEducation').value = education.education_name;
+        document.getElementById('modalStartDate').value = education.start_date;
+        document.getElementById('modalEndDate').value = education.end_date;
+    }
+    document.getElementById('educationModal').style.display = 'block';
+}
+
+// 교육 정보 모달 닫기
+function closeEducationModal() {
+    document.getElementById('educationModal').style.display = 'none';
+}
+
+// 모달 액션 핸들러 (추가 또는 수정 함수를 호출)
+function handleEducationAction() {
+    if (modalMode === 'add') {
+        addEducation();
+    } else if (modalMode === 'edit') {
+        updateEducation();
+    }
+}
+
+// 교육 정보 추가
+async function addEducation() {
+    if (!supabase) {
+        showAlert('먼저 Supabase에 연결해주세요.', 'error');
+        return;
+    }
+
+    const instructor = document.getElementById('modalInstructor').value;
+    const education = document.getElementById('modalEducation').value;
+    const center = document.getElementById('modalCenter').value;
+    const uniqueKey = generateUniqueKey(instructor, education, center);
+    const start_date = document.getElementById('modalStartDate').value;
+    const end_date = document.getElementById('modalEndDate').value;
+
+    if (!instructor || !education || !center || !start_date || !end_date) {
+        showAlert('모든 필드를 입력해주세요.', 'error');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('education_info')
+            .insert([{
+                unique_key: uniqueKey,
+                center_name: center,
+                instructor_name: instructor,
+                education_name: education,
+                start_date: start_date,
+                end_date: end_date
+            }]);
+
+        if (error) throw error;
+
+        showAlert('교육 정보가 성공적으로 추가되었습니다!', 'success');
+        closeEducationModal();
+        educationPage = 0;
+        currentEducations = [];
+        loadEducations();
+    } catch (error) {
+        showAlert('추가 실패: ' + error.message, 'error');
+    }
+}
+
+// 교육 정보 업데이트
+// 주의: unique_key 값은 변경하지 않는다. (변경하면 기존 설문은 모두 무효가 됨.)
+async function updateEducation() {
+    const center = document.getElementById('modalCenter').value;
+    const instructor = document.getElementById('modalInstructor').value;
+    const education = document.getElementById('modalEducation').value;
+    const start_date = document.getElementById('modalStartDate').value;
+    const end_date = document.getElementById('modalEndDate').value;
+
+    if (!instructor || !education || !center || !start_date || !end_date) {
+        showAlert('모든 필드를 입력해주세요.', 'error');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('education_info')
+            .update({
+                center_name: center,
+                instructor_name: instructor,
+                education_name: education,
+                start_date: start_date,
+                end_date: end_date,
+            })
+            .eq('id', editingEducationId);
+
+        if (error) throw error;
+
+        showAlert('교육 정보가 성공적으로 수정되었습니다!', 'success');
+        closeEducationModal();
+        educationPage = 0;
+        currentEducations = [];
+        loadEducations();
+    } catch (error) {
+        showAlert('수정 실패: ' + error.message, 'error');
+    }
+}
+
+// 모달 외부 클릭시 닫기 (educationModal 하나만 처리)
+window.onclick = function (event) {
+    const educationModal = document.getElementById('educationModal');
+    if (event.target === educationModal) {
+        closeEducationModal();
+    }
+}
+
+// 교육 정보 삭제
+// TODO: 설문 데이터가 있으면 삭제하면 안됨.
+async function deleteEducation(id, unique_key) {
+    if (!confirm('정말로 이 교육 정보를 삭제하시겠습니까?')) return;
+
+    try {
+        const { data, error } = await supabase
+            .from('education_info')
+            .delete()
+            .eq('id', id)
+            .eq('unique_key', unique_key);
+
+        if (error) throw error;
+
+        showAlert('교육 정보가 삭제되었습니다.', 'success');
+        educationPage = 0;
+        currentEducations = [];
+        loadEducations();
+    } catch (error) {
+        showAlert('삭제 실패: ' + error.message, 'error');
+    }
+}
+
+// 설문 결과 로드 (검색 기능 및 페이징 포함)
+async function loadSurveyResults(filters = {}) {
+    if (surveyIsLoading) return;
+    surveyIsLoading = true;
+
+    if (!supabase) {
+        document.getElementById('surveyResults').innerHTML = '<div class="alert alert-error">먼저 Supabase에 연결해주세요.</div>';
+        return;
+    }
+
+    const surveyResultsDiv = document.getElementById('surveyResults');
+    const loadingDiv = surveyResultsDiv.querySelector('.loading');
+    if (loadingDiv) loadingDiv.style.display = 'block';
+
+    // 검색 시 또는 첫 로드 시 currentSurveyResults 초기화
+    if (surveyPage === 0) {
+        currentSurveyResults = [];
+        surveyResultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>설문 결과를 불러오는 중...</p></div>';
+    }
+
+    // 이미 로딩 중인지 확인하여 중복 요청 방지
+    if (window.isLoadingSurveys) {
+        return;
+    }
+    window.isLoadingSurveys = true;
+
+    try {
+        let query = supabase.from('survey_results').select('*', { count: 'exact' });
+
+        // 검색 조건 추가 (filters 객체 사용)
+        if (filters.center) {
+            query = query.ilike('center_name', `%${filters.center}%`);
+        }
+        if (filters.instructor) {
+            query = query.ilike('instructor_name', `%${filters.instructor}%`);
+        }
+        if (filters.education) {
+            query = query.ilike('education_name', `%${filters.education}%`);
+        }
+
+        // 페이징 적용
+        const from = surveyPage * recordsPerPage;
+        const to = from + recordsPerPage - 1;
+        query = query.order('submitted_at', { ascending: false }).range(from, to);
+
+        const { data, error, count } = await query;
+        if (error) throw error;
+
+        currentSurveyResults = currentSurveyResults.concat(data); // 새로 불러온 데이터를 기존 데이터에 추가
+
+        displaySurveyResults(currentSurveyResults, count, surveyPage === 0);
+        updateStats(currentSurveyResults, count);
+
+        if (loadingDiv) loadingDiv.style.display = 'none';
+
+        // 스크롤 로드를 위한 이벤트 리스너 추가 (최초 로드 시에만)
+        if (!surveyResultsDiv.hasScrollListener) {
+            surveyResultsDiv.addEventListener('scroll', handleSurveyScroll);
+            surveyResultsDiv.hasScrollListener = true;
+        }
+        window.isLoadingSurveys = false; // 로딩 상태 해제
+
+    } catch (error) {
+        surveyResultsDiv.innerHTML = `<div class="alert alert-error">로딩 실패: ${error.message}</div>`;
+        if (loadingDiv) loadingDiv.style.display = 'none';
+    } finally {
+        surveyIsLoading = false;
+    }
+}
+
+// 설문 스크롤 이벤트 핸들러
+function handleSurveyScroll() {
+    const surveyDiv = document.getElementById('surveyResults');
+    // 이미 로딩 중이면 중복 실행 방지
+    if (window.isLoadingSurveys) return;
+    // 스크롤이 끝에서 50px 정도까지 가면 추가 로드
+    if (surveyDiv.scrollTop + surveyDiv.clientHeight >= surveyDiv.scrollHeight - 50) {
+        surveyPage++;
+        loadSurveyResults();
+    }
+}
+
+// 통계 업데이트
+function updateStats(results, totalCount) {
+    const totalResponses = totalCount || results.length;
+    let totalScore = 0;
+    // 고유한 교육 과정 수 계산 (센터명 + 강사명 + 교육명 조합으로 중복 제거)
+    const uniqueEducations = new Set();
+    // 전체 교육 수: 교육과정 검색 currentEducations.length
+
+    if (results.length > 0) {
+        results.forEach(
+          result => {
+            totalScore += (result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
+                result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10;
+
+            // 고유한 교육 과정 식별 (센터명 + 강사명 + 교육명 조합)
+            const educationKey = `${result.center_name}|${result.instructor_name}|${result.education_name}`;
+            console.log(educationKey);
+            uniqueEducations.add(educationKey);
+          }
+        );
+
+    }
+    const uniqueEducationCount = uniqueEducations.size;
+
+    document.getElementById('totalResponses').textContent = totalResponses;
+    document.getElementById('avgRating').textContent = results.length > 0 ? (totalScore / results.length).toFixed(1) : '0.0';
+    document.getElementById('uniqueEducations').textContent = uniqueEducationCount;
+}
+
+
+// 응답 내역 표시 (검색 건수 업데이트 포함)
+// displaySurveyResults(currentSurveyResults, count, surveyPage === 0);
+function displaySurveyResults(results, totalCount, isInitialRender = false) {
+    const surveyResultsDiv = document.getElementById('surveyResults');
+    const surveyCountDiv = document.getElementById('surveyCount');
+
+    surveyCountDiv.textContent = `총 ${totalCount}건의 설문 응답이 검색되었습니다.`;
+
+    if (results.length === 0) {
+        surveyResultsDiv.innerHTML = '<div class="alert alert-info">응답 내역이 없습니다.</div>';
+        return;
+    }
+
+    let html = `
+    <table class="table">
+    <thead>
+    <tr>
+    <th width="14%">응답일</th>
+    <th width="10%">센터명</th>
+    <th width="10%">강사명</th>
+    <th width="24%">교육명</th>
+    <th width="10%">응답자</th>
+    <th width="9%">연령대</th>
+    <th width="11%">평균점수</th>
+    <th width="11%">응답내역</th>
+    </tr>
+    </thead>
+    <tbody>
+    `;
+
+    results.forEach(
+      result => {
+        const avgScore = ((result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
+            result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10).toFixed(1);
+
+        html += `
+          <tr>
+          <td><code>${new Date(result.submitted_at).toLocaleDateString()}</code></td>
+          <td><code>${result.center_name}</code></td>
+          <td>${result.instructor_name}</td>
+          <td>${result.education_name}</td>
+          <td><code>${result.respondent_name}</code></td>
+          <td>${result.age_group}</td>
+          <td><strong>${avgScore}</strong></td>
+          <td><button class="btn" onclick="showResultDetail(${result.id})" style="padding: 5px 10px; font-size: 0.8rem;">상세</button></td>
+          </tr>
+        `;
+      }
+    );
+
+    html += '</tbody></table>';
+    surveyResultsDiv.innerHTML = html;
+}
+
+    </script>
+  </body>
+</html>

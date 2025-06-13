@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KCMF 강의평가 설문조사</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .nav-tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            color: #64748b;
+        }
+        .nav-tab.active {
+            background: white;
+            color: #4f46e5;
+            border-bottom: 3px solid #4f46e5;
+            font-weight: bold;
+        }
+        .nav-tab:hover {
+            background: #e2e8f0;
+        }
+
+        .content {
+            padding: 30px;
+            min-height: 400px;
+        }
+
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #374151;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .rating-group {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        .rating-options {
+            display: flex;
+            gap: 10px;
+        }
+        .rating-options label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.3s ease;
+        }
+        .rating-options label:hover {
+            background: #e2e8f0;
+        }
+        .rating-options input[type="radio"] {
+            margin-bottom: 5px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+        .btn-secondary {
+            background: #6b7280;
+        }
+
+        .survey-progress {
+            background: #e5e7eb;
+            height: 6px;
+            border-radius: 3px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        .survey-progress-bar {
+            height: 100%;
+            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            transition: width 0.3s ease;
+        }
+        .survey-step {
+            display: none;
+        }
+        .survey-step.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        .step-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .intro-section {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .intro-section h3 {
+            color: #4f46e5;
+            margin-bottom: 15px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .alert-success { background: #d1fae5; color: #065f46; }
+        .alert-error { background: #fee2e2; color: #991b1b; }
+        .alert-info { background: #dbeafe; color: #1e40af; }
+
+        .age-notice {
+            display: none;
+            padding: 10px;
+            margin-top: 15px;
+            background: #dbeafe;
+            color: #1e40af;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 KCMF 강의평가 설문조사</h1>
+            <p>교육 만족도 조사 플랫폼</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showPage('intro')">🔧 안내</button>
+            <button class="nav-tab" onclick="showPage('survey')">📝 설문 응답</button>
+        </div>
+
+        <div class="content">
+            <div id="intro" class="page active">
+
+                <div id="qrcodeSection" style="margin-top: 20px;">
+                    <h3>📱 현재 페이지 QR코드</h3>
+                    <br />
+                    <canvas id="qrcodeCanvas"></canvas>
+                </div>
+
+                <div class="intro-section">
+                    <h3>설문을 시작하려면 아래 방법 중 하나를 선택하세요.</h3>
+                    <p>1. 관리자에게 받은 설문 URL로 접속 (URL에 포함된 고유키가 자동 인식됩니다.)</p>
+                    <p>2. 고유키가 없어서 설문이 나타나지 않는 경우, 아래에 고유키를 입력 후 '설문 시작' 버튼을 클릭</p>
+                    <p>3. 상단의 설문응답 탭을 눌러 설문내용을 보고 답변</p>
+                </div>
+
+                <div id="manualSurveyEntry">
+                    <div class="form-group">
+                        <label for="surveyKey">설문 URL 또는 고유키 입력:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="surveyKey" placeholder="123456 또는 전체 URL">
+                            <button class="btn" onclick="loadSurveyFromInput()">설문 시작</button>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div id="connectionStatus"></div>
+                 <button class="btn btn-secondary" onclick="testConnection()">DB 연결 테스트</button>
+            </div>
+
+            <div id="survey" class="page">
+                <div id="surveyContent" style="display: none;">
+
+                    <div id="surveyInfo" class="alert alert-info" style="display: none;">
+                        <h3><strong>강사:</strong> <span id="displayInstructor"></span></h3>
+                        <h3><strong>교육명:</strong> <span id="displayEducation"></span></h3>
+                        <h3><strong>센터:</strong> <span id="displayCenter"></span></h3>
+                    </div>
+
+                    <div class="survey-progress">
+                        <div class="survey-progress-bar" id="progressBar" style="width: 25%"></div>
+                    </div>
+
+                    <div id="step1" class="survey-step active">
+                        <h3>1단계: 기본 정보</h3>
+                        <div class="form-group">
+                            <label>성명:</label>
+                            <input type="text" id="respondentName">
+                        </div>
+                        <div class="form-group">
+                            <label>성별:</label>
+                            <div class="rating-options">
+                                <label><input type="radio" name="gender" value="남성">남성</label>
+                                <label><input type="radio" name="gender" value="여성">여성</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>연령대:</label>
+                            <div class="rating-options">
+                                <label><input type="radio" name="ageGroup" value="10대미만">10대미만</label>
+                                <label><input type="radio" name="ageGroup"  value="10대">10대</label>
+                                <label><input type="radio" name="ageGroup"  value="20대">20대</label>
+                                <label><input type="radio" name="ageGroup"  value="30대">30대</label>
+                                <label><input type="radio" name="ageGroup"  value="40대">40대</label>
+                                <label><input type="radio" name="ageGroup"  value="50대">50대</label>
+                                <label><input type="radio" name="ageGroup"  value="60대 이상">60대 이상</label>
+                            </div>
+                        </div>
+                        <div id="ageNotice" class="age-notice">
+                            연령대에 따라 설문 문항이 자동으로 조정됩니다.
+                        </div>
+                    </div>
+
+                    <div id="step2" class="survey-step">
+                        <h3>2단계: 교육내용 및 운영 평가</h3>
+                        <div id="questions-group-1"></div>
+                    </div>
+
+                    <div id="step3" class="survey-step">
+                        <h3>3단계: 강사 평가</h3>
+                        <div id="questions-group-2"></div>
+                    </div>
+
+                    <div id="step4" class="survey-step">
+                        <h3>4단계: 총괄 평가</h3>
+                        <div id="questions-group-3"></div>
+                        <div class="form-group">
+                            <label>기타 의견:</label>
+                            <p>※ 시청자미디어재단의 교육에 대하여 하고 싶은 말을 적어주십시오(예 : 개선점, 바라는점, 고마운점 등).</p>
+                            <textarea id="additionalComments" rows="4" placeholder="자유롭게 의견을 작성해주세요."></textarea>
+                        </div>
+                    </div>
+
+                    <div id="surveyAlertStatus"></div>
+
+                    <div class="step-navigation">
+                        <button class="btn btn-secondary" id="prevBtn" onclick="prevStep()" style="display: none;">이전</button>
+                        <button class="btn" id="nextBtn" onclick="nextStep()">다음</button>
+                        <button class="btn" id="submitBtn" onclick="submitSurvey()" style="display: none;">설문 제출</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // 설문파일 위치 (QR 코드 생성에도 사용)
+    // var survey_url = 'https://kcmf.or.kr/survey.html';
+    var survey_url = window.location.href; 
+    // DB 접속 및 생성
+	var supabase = supabase.createClient('https://fnxmyayfosjwuvsxbabm.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZueG15YXlmb3Nqd3V2c3hiYWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk2MTg2NzcsImV4cCI6MjA2NTE5NDY3N30.rAldXcD4_tsstfd9xHzKw3QgIHBrHvaFkBv6TJRVhjA')
+	
+    let currentStep = 1;
+    let currentSurveyInfo = null;
+
+    // [수정] 연령대별 설문 문항 정의
+    const surveyQuestions = {
+        '10대미만': [
+            "나는 선생님의 수업을 듣는 것이 즐겁습니다.",
+            "나는 선생님의 말씀이 쏙쏙 이해됩니다.",
+            "나에게 수업 시간은 딱 알맞습니다.",
+            "나는 수업 시간에 나눠주신 활동지(교재)가 좋았습니다.",
+            "선생님은 수업내용을 잘 알고 계십니다.",
+            "선생님은 수업을 열심히 하십니다.",
+            "선생님의 말씀은 집중이 잘됩니다.",
+            "선생님은 나와 친구들의 이야기를 잘 들어주십니다.",
+            "선생님의 수업은 나에게 도움이 됩니다.",
+            "선생님의 수업은 늘 기다려집니다."
+        ],
+        '10대': [
+            "수업 내용이 좋았나요?",
+            "수업 내용이 너무 어렵거나 쉽지는 않았나요?",
+            "수업 시간은 적당했나요?",
+            "수업 시간에 나누어준 자료들은 적절했나요?",
+            "선생님은 수업내용을 잘 알고 계시나요?",
+            "선생님은 수업을 열심히 하셨나요?",
+            "선생님은 수업 내용을 이해하기 쉽게 잘 설명해 주셨나요?",
+            "선생님은 학생들과 소통하기 위해 노력하셨나요?",
+            "이 수업이 나에게 도움이 되었나요?",
+            "이 수업이 전반적으로 만족스럽나요?"
+        ],
+        'default': [
+            "귀하는 교육 내용에 만족하십니까?",
+            "귀하는 교육 수준(난이도)에 만족하십니까?",
+            "귀하는 교육 횟수에 만족하십니까?",
+            "귀하는 교육자료 또는 교재에 대해 만족하십니까?",
+            "귀하는 강사의 전문성에 대해 만족하십니까?",
+            "귀하는 강사의 성실성 및 준비성에 대해 만족하십니까?",
+            "귀하는 강사의 수업지도력 및 전달력에 대해 만족하십니까?",
+            "귀하는 강사의 수강생과의 소통노력에 만족하십니까?",
+            "귀하는 이 교육이 본인에게 도움이 되었다고 생각하십니까?",
+            "귀하는 해당 교육에 전반적으로 만족하십니까?"
+        ]
+    };
+
+    // [수정] 연령대별 평가 옵션 정의
+    const ratingOptions = {
+        '10대미만': [
+            {value: 1, text: "전혀<br>그렇지않다"},
+            {value: 2, text: "그렇지않다"},
+            {value: 3, text: "보통이다"},
+            {value: 4, text: "그렇다"},
+            {value: 5, text: "매우<br>그렇다"}
+        ],
+        '10대': [
+            {value: 1, text: "전혀<br>그렇지않다"},
+            {value: 2, text: "그렇지않다"},
+            {value: 3, text: "보통이다"},
+            {value: 4, text: "그렇다"},
+            {value: 5, text: "매우<br>그렇다"}
+        ],
+        'default': [
+            {value: 1, text: "매우<br>불만족"},
+            {value: 2, text: "불만족"},
+            {value: 3, text: "보통"},
+            {value: 4, text: "만족"},
+            {value: 5, text: "매우<br>만족"}
+        ]
+    };
+
+    // [추가] 연령대 선택 시 이벤트 리스너 등록
+    document.querySelectorAll('input[name="ageGroup"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            document.getElementById('ageNotice').style.display = 'block';
+        });
+    });
+
+    // [수정] 연령대에 따른 설문 문항 업데이트 함수
+    function updateSurveyQuestions() {
+        const selectedAge = document.querySelector('input[name="ageGroup"]:checked');
+        if (!selectedAge) return;
+        
+        const ageGroup = selectedAge.value;
+        let questionsToUse = surveyQuestions.default;
+        let optionsToUse = ratingOptions.default;
+        
+        if (ageGroup === '10대미만') {
+            questionsToUse = surveyQuestions['10대미만'];
+            optionsToUse = ratingOptions['10대미만'];
+        } else if (ageGroup === '10대') {
+            questionsToUse = surveyQuestions['10대'];
+            optionsToUse = ratingOptions['10대'];
+        }
+        
+        // 문항 그룹별로 나누어 생성
+        generateQuestionGroup('questions-group-1', questionsToUse.slice(0, 4), optionsToUse, 1);
+        generateQuestionGroup('questions-group-2', questionsToUse.slice(4, 8), optionsToUse, 5);
+        generateQuestionGroup('questions-group-3', questionsToUse.slice(8, 10), optionsToUse, 9);
+    }
+
+    // [수정] 질문 그룹 생성 함수
+    function generateQuestionGroup(containerId, questions, options, startIndex) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = ''; // 이전 문항 초기화
+        
+        questions.forEach((question, index) => {
+            const questionNum = startIndex + index;
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'rating-group';
+            
+            const optionsHtml = options.map(option => 
+                `<label><input type="radio" name="q${questionNum}" value="${option.value}"><small>${option.text}</small></label>`
+            ).join('');
+            
+            questionDiv.innerHTML = `
+                <div>${questionNum}. ${question}</div>
+                <div class="rating-options">
+                    ${optionsHtml}
+                </div>
+            `;
+            
+            container.appendChild(questionDiv);
+        });
+    }
+
+
+    // Supabase 연결 테스트
+    async function testConnection() {
+        try {
+            const { data, error } = await supabase.from('education_info').select('count').limit(1);
+            if (error) throw error;
+            showAlert('데이터베이스 연결 테스트 성공!', 'success', 'connectionStatus');
+        } catch (error) {
+            showAlert('데이터베이스 테스트 실패: ' + error.message, 'error', 'connectionStatus');
+        }
+    }
+
+    // 알림 표시
+    function showAlert(message, type, elementId) {
+        const statusDiv = document.getElementById(elementId);
+        if (statusDiv) {
+            statusDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+    }
+
+    // 페이지(탭) 전환
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+        
+        document.getElementById(pageId).classList.add('active');
+        document.querySelector(`.nav-tab[onclick="showPage('${pageId}')"]`).classList.add('active');
+    }
+
+    // 입력창의 버튼 클릭 시 호출되는 함수
+    function loadSurveyFromInput() {
+        const key = document.getElementById('surveyKey').value;
+        drawQRCode(key);
+        loadSurveyInfo(key);
+    }
+
+    // 고유키로 설문 정보를 로드하는 핵심 함수
+    async function loadSurveyInfo(uniqueKeyInput) {
+        if (!supabase) {
+            showAlert('Supabase가 초기화되지 않았습니다.', 'error', 'connectionStatus');
+            return;
+        }
+
+        let uniqueKey = uniqueKeyInput;
+        if (!uniqueKey) {
+            showAlert('설문 URL 또는 고유키를 입력해주세요.', 'error', 'connectionStatus');
+            return;
+        }
+        
+        if (uniqueKey.includes('#s=')) {
+            uniqueKey = uniqueKey.split('#s=')[1];
+        } else if (uniqueKey.includes('s=')) {
+            uniqueKey = uniqueKey.split('s=')[1];
+        }
+
+        showAlert('설문 정보를 불러오는 중입니다...', 'info', 'connectionStatus');
+
+        try {
+            const { data, error } = await supabase
+                .from('education_info')
+                .select('*')
+                .eq('unique_key', uniqueKey)
+                .single();
+
+            if (error || !data) {
+                throw new Error('해당 고유키의 설문을 찾을 수 없습니다.');
+            }
+
+            // [추가] 설문 기간 유효성 검사
+            if (!data.start_date || !data.end_date) {
+                throw new Error('설문 기간이 설정되지 않았습니다. 관리자에게 문의하세요.');
+            }
+            const startDate = new Date(data.start_date);
+            const endDate = new Date(data.end_date);
+            const currentDate = new Date();
+            // 시간을 0으로 설정하여 날짜만 비교 (시작일과 종료일 당일 포함)
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(0, 0, 0, 0);
+            currentDate.setHours(0, 0, 0, 0);
+
+            if (currentDate >= startDate && currentDate <= endDate) {
+                // 평가 기간이 유효한 경우, 기존 로직 수행
+                currentSurveyInfo = data;
+                document.getElementById('displayInstructor').textContent = data.instructor_name;
+                document.getElementById('displayEducation').textContent = data.education_name;
+                document.getElementById('displayCenter').textContent = data.center_name;
+                document.getElementById('surveyInfo').style.display = 'block';
+                document.getElementById('surveyContent').style.display = 'block';
+                
+                showPage('survey');
+                
+                currentStep = 1;
+                showStep(1);
+
+                const statusDiv = document.getElementById('connectionStatus');
+                if (statusDiv) statusDiv.innerHTML = '';
+            
+            } else {
+                // 평가 기간이 아닌 경우, 에러 메시지 표시
+                throw new Error('해당 강좌의 평가기간이 아닙니다.');                
+            }
+        } catch (error) {
+            showAlert('설문 정보 로딩 실패: ' + error.message, 'error', 'connectionStatus');
+            document.getElementById('surveyContent').style.display = 'none'; // 설문 내용 숨김
+        }
+    }
+
+    // 설문 단계 표시
+    function showStep(step) {
+        document.querySelectorAll('.survey-step').forEach(s => s.classList.remove('active'));
+        document.getElementById(`step${step}`).classList.add('active');
+        
+        const progress = (step / 4) * 100;
+        document.getElementById('progressBar').style.width = progress + '%';
+        
+        document.getElementById('prevBtn').style.display = step > 1 ? 'inline-block' : 'none';
+        document.getElementById('nextBtn').style.display = step < 4 ? 'inline-block' : 'none';
+        document.getElementById('submitBtn').style.display = step === 4 ? 'inline-block' : 'none';
+        
+        currentStep = step;
+    }
+
+    // 다음 단계
+    function nextStep() {
+        if (validateCurrentStep()) {
+            if (currentStep === 1) {
+                updateSurveyQuestions(); // 1단계 완료 후 질문 업데이트
+            }
+            showStep(currentStep + 1);
+        }
+    }
+
+    // 이전 단계
+    function prevStep() {
+        showStep(currentStep - 1);
+    }
+
+    // 현재 단계 유효성 검사
+    function validateCurrentStep() {
+        const surveyAlertElementId = 'surveyAlertStatus';
+        switch(currentStep) {
+            case 1:
+                if (!document.getElementById('respondentName').value) {
+                    showAlert('성명을 입력해주세요.', 'error', surveyAlertElementId); return false;
+                }
+                if (!document.querySelector('input[name="gender"]:checked')) {
+                    showAlert('성별을 선택해주세요.', 'error', surveyAlertElementId); return false;
+                }
+                if (!document.querySelector('input[name="ageGroup"]:checked')) {
+                    showAlert('연령대를 선택해주세요.', 'error', surveyAlertElementId); return false;
+                }
+                return true;
+                
+            case 2:
+                for (let i = 1; i <= 4; i++) {
+                    if (!document.querySelector(`input[name="q${i}"]:checked`)) {
+                        showAlert(`${i}번 문항을 평가해주세요.`, 'error', surveyAlertElementId); return false;
+                    }
+                }
+                return true;
+                
+            case 3:
+                for (let i = 5; i <= 8; i++) {
+                    if (!document.querySelector(`input[name="q${i}"]:checked`)) {
+                        showAlert(`${i}번 문항을 평가해주세요.`, 'error', surveyAlertElementId); return false;
+                    }
+                }
+                return true;
+                
+            case 4:
+                 for (let i = 9; i <= 10; i++) {
+                    if (!document.querySelector(`input[name="q${i}"]:checked`)) {
+                        showAlert(`${i}번 문항을 평가해주세요.`, 'error', surveyAlertElementId); return false;
+                    }
+                }
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    // 설문 제출
+    async function submitSurvey() {
+        if (!validateCurrentStep()) return;
+        if (!supabase || !currentSurveyInfo) {
+            showAlert('설문 정보가 없습니다. 다시 시도해주세요.', 'error', 'surveyContent');
+            return;
+        }
+
+        const surveyData = {
+            unique_key: currentSurveyInfo.unique_key,
+            center_name: currentSurveyInfo.center_name,
+            instructor_name: currentSurveyInfo.instructor_name,
+            education_name: currentSurveyInfo.education_name,
+            respondent_name: document.getElementById('respondentName').value,
+            gender: document.querySelector('input[name="gender"]:checked').value,
+            age_group: document.querySelector('input[name="ageGroup"]:checked').value,
+            q1_rating: parseInt(document.querySelector('input[name="q1"]:checked').value),
+            q2_rating: parseInt(document.querySelector('input[name="q2"]:checked').value),
+            q3_rating: parseInt(document.querySelector('input[name="q3"]:checked').value),
+            q4_rating: parseInt(document.querySelector('input[name="q4"]:checked').value),
+            q5_rating: parseInt(document.querySelector('input[name="q5"]:checked').value),
+            q6_rating: parseInt(document.querySelector('input[name="q6"]:checked').value),
+            q7_rating: parseInt(document.querySelector('input[name="q7"]:checked').value),
+            q8_rating: parseInt(document.querySelector('input[name="q8"]:checked').value),
+            q9_rating: parseInt(document.querySelector('input[name="q9"]:checked').value),
+            q10_rating: parseInt(document.querySelector('input[name="q10"]:checked').value),
+            additional_comments: document.getElementById('additionalComments').value
+        };
+
+        try {
+            const { error } = await supabase.from('survey_results').insert([surveyData]);
+
+            if (error) throw error;
+            
+            showPage('intro');
+            showAlert('설문이 성공적으로 제출되었습니다! 참여해 주셔서 감사합니다.', 'success', 'connectionStatus');
+            
+            document.getElementById('surveyContent').style.display = 'none';
+            document.getElementById('surveyKey').value = '';
+            currentSurveyInfo = null;
+            
+        } catch (error) {
+            showAlert('제출 실패: ' + error.message, 'error', 'surveyContent');
+        }
+    }
+
+    // QR코드 생성
+    function drawQRCode(surveyKey) {
+        if (!surveyKey) return;
+        const qr = new QRious({
+            element: document.getElementById('qrcodeCanvas'),
+            value: survey_url + '#s=' + surveyKey,
+            size: 200,
+            level: 'H'
+        });
+    }
+
+    window.addEventListener('load', function() {
+        const hash = window.location.hash;
+        if (hash.includes('#s=')) {
+            const surveyKey = hash.split('s=')[1];
+            if (surveyKey) {
+                document.getElementById('manualSurveyEntry').style.display = 'none';
+                drawQRCode(surveyKey);
+                loadSurveyInfo(surveyKey);
+            }
+        }
+    });
+
+    </script>
+</body>
+</html>
