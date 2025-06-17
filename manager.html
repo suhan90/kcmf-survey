@@ -517,14 +517,16 @@ GRANT SELECT ON edu_survey_view TO anon, authenticated;
 
         <!-- 관리자 화면1: 교육 관리 -->
         <div id="admin1" class="page">
-          <h2>📋 교육 검색</h2>
+
           <div id="education-search-ui"></div>
+
           <div style="text-align: right">
             <button class="btn" onclick="openEducationModal('add')">
               신규 등록
             </button>
           </div>
 
+          <h2>📋 검색 결과</h2>
           <div
             id="educationCount"
             style="margin-bottom: 10px; font-weight: bold"
@@ -539,7 +541,7 @@ GRANT SELECT ON edu_survey_view TO anon, authenticated;
 
         <!-- 관리자 화면2: 설문 현황 -->
         <div id="admin2" class="page">
-          <h2>📊 설문 검색</h2>
+
           <div id="survey-search-ui"></div>
 
           <h2>📊 검색 결과</h2>
@@ -688,7 +690,7 @@ async function signIn() {
     } else {
         document.getElementById('authStatus').innerText = '로그인 성공! 사용자 ID: ' + data.user.id;
         updateLoginUI(true);
-        showPage('admin1');
+        showPage('admin2');
     }
 }
 
@@ -708,7 +710,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     if (session && session.user) {
         document.getElementById('authStatus').innerText = `로그인 상태: ${session.user.id}`;
         updateLoginUI(true);
-        showPage('admin1');
+        showPage('admin2');
     } else {
         document.getElementById('authStatus').innerText = '로그인 상태: 로그아웃됨';
         updateLoginUI(false);
@@ -1526,10 +1528,10 @@ function displayDetailedResults(results, uniqueKey) {
             <table class="table">
                 <thead>
                     <tr>
-                        <th width="12%">응답일</th>
+                        <th width="14%">응답일</th>
                         <th width="10%">응답자</th>
                         <th width="6%">성별</th>
-                        <th width="7%">연령대</th>
+                        <th width="6%">연령</th>
                         <th width="4%">Q1</th>
                         <th width="4%">Q2</th>
                         <th width="4%">Q3</th>
@@ -1556,12 +1558,16 @@ function displayDetailedResults(results, uniqueKey) {
         const submittedDate = new Date(result.submitted_at).toLocaleDateString('ko-KR', {
             year: '2-digit',
             month: '2-digit',
-            day: '2-digit'
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
         });
+        const formattedDate = submittedDate.replace(/(\d{2})\.\s?(\d{2})\.\s?(\d{2})\.\s?(\d{2}):(\d{2})/, '$1.$2.$3. $4:$5');
 
         html += `
             <tr>
-                <td><code>${submittedDate}</code></td>
+                <td><code>${formattedDate}</code></td>
                 <td><code>${result.respondent_name}</code></td>
                 <td>${result.gender}</td>
                 <td>${result.age_group}</td>
