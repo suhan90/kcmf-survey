@@ -418,11 +418,12 @@ additional_comments TEXT,
 -- RLS(Row Level Security) 정책 설정 
 ALTER TABLE education_info ENABLE ROW LEVEL SECURITY;
 ALTER TABLE survey_results ENABLE ROW LEVEL SECURITY;
--- 모든 사용자 권한 설정
+-- 사용자 권한 설정
 CREATE POLICY "모두 읽기 가능" ON education_info FOR SELECT USING (true);
+CREATE POLICY "인증사용자 추가 가능" ON education_info FOR INSERT WITH CHECK ( auth.uid() IS NOT NULL );
+CREATE POLICY "인증사용자 소유 데이터 수정 가능" ON education_info FOR UPDATE USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
+CREATE POLICY "인증사용자 소유 데이터 삭제 가능" ON education_info FOR DELETE USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
 CREATE POLICY "모두 추가 가능" ON survey_results FOR INSERT WITH CHECK (true);
--- 운영자 권한 설정
-CREATE POLICY "인증사용자는 자기 데이터만 수정 가능" ON education_info FOR ALL USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() ) WITH CHECK ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
 CREATE POLICY "인증사용자는 전체 데이터 수정 가능" ON survey_results FOR ALL USING ( auth.uid() is not null) with check (auth.uid() is not null);
 
 5. supabase에서 설문 통계 속도 향상을 위해  함수 생성
@@ -436,6 +437,7 @@ CREATE OR REPLACE FUNCTION get_survey_stats(
 RETURNS TABLE(
   total_responses BIGINT,
   avg_rating NUMERIC(3,1),
+  instructor_rating NUMERIC(3,1),
   unique_educations BIGINT
 ) 
 LANGUAGE plpgsql
@@ -457,7 +459,8 @@ BEGIN
     SELECT 
       COUNT(*) as total_count,
       AVG((q1_rating + q2_rating + q3_rating + q4_rating + q5_rating + 
-           q6_rating + q7_rating + q8_rating + q9_rating + q10_rating) / 10.0) as average_rating
+           q6_rating + q7_rating + q8_rating + q9_rating + q10_rating) / 10.0) as average_rating,
+      AVG((q5_rating + q6_rating + q7_rating + q8_rating) / 4.0) as instructor_rating
     FROM filtered_results
   ),
   unique_count AS (
@@ -467,6 +470,7 @@ BEGIN
   SELECT 
     stats.total_count,
     ROUND(stats.average_rating, 1),
+    ROUND(stats.instructor_rating, 1),
     unique_count.unique_edu_count
   FROM stats, unique_count;
 END;
@@ -519,6 +523,10 @@ $$;
             <div class="stat-card">
               <div class="stat-number" id="avgRating">0.0</div>
               <div>평균 만족도</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="instructorRating">0.0</div>
+              <div>강사 만족도</div>
             </div>
           </div>
 
@@ -1284,6 +1292,7 @@ async function loadSurveyStatsOptimized(filters = {}) {
         // 서버에서 계산된 결과 직접 사용
         document.getElementById('totalResponses').textContent = data[0].total_responses;
         document.getElementById('avgRating').textContent = data[0].avg_rating;
+        document.getElementById('instructorRating').textContent = data[0].instructor_rating;
         document.getElementById('uniqueEducations').textContent = data[0].unique_educations;
 
     } catch (error) {
@@ -1395,8 +1404,8 @@ function displaySurveyResults(results, isInitialRender = false) {
     <th width="10%">강사명</th>
     <th width="24%">교육명</th>
     <th width="10%">응답자</th>
-    <th width="9%">연령대</th>
     <th width="11%">평균점수</th>
+    <th width="11%">강사점수</th>
     <th width="11%">응답내역</th>
     </tr>
     </thead>
@@ -1407,7 +1416,7 @@ function displaySurveyResults(results, isInitialRender = false) {
       result => {
         const avgScore = ((result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
             result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10).toFixed(1);
-
+        const instScore = ((result.q5_rating + result.q6_rating + result.q7_rating + result.q8_rating) / 4).toFixed(1);
         html += `
           <tr>
           <td><code>${new Date(result.submitted_at).toLocaleDateString('ko-KR', {
@@ -1419,8 +1428,8 @@ function displaySurveyResults(results, isInitialRender = false) {
           <td>${result.instructor_name}</td>
           <td>${result.education_name}</td>
           <td><code>${result.respondent_name}</code></td>
-          <td>${result.age_group}</td>
           <td><strong>${avgScore}</strong></td>
+          <td>${instScore}</td>
           <td><button class="btn" onclick="showResultDetail('${result.unique_key}')" style="padding: 5px 10px; font-size: 0.8rem;">상세</button></td>
           </tr>
         `;
@@ -1522,7 +1531,7 @@ function displayDetailedResults(results, uniqueKey) {
                 <thead>
                     <tr>
                         <th width="12%">응답일</th>
-                        <th width="12%">응답자</th>
+                        <th width="10%">응답자</th>
                         <th width="6%">성별</th>
                         <th width="7%">연령대</th>
                         <th width="4%">Q1</th>
@@ -1536,7 +1545,8 @@ function displayDetailedResults(results, uniqueKey) {
                         <th width="4%">Q9</th>
                         <th width="4%">Q10</th>
                         <th width="6%">평균</th>
-                        <th width="17%">의견</th>
+                        <th width="6%">강사</th>
+                        <th width="13%">의견</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1545,6 +1555,7 @@ function displayDetailedResults(results, uniqueKey) {
     results.forEach(result => {
         const avgScore = ((result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
             result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10).toFixed(1);
+        const instScore = ((result.q5_rating + result.q6_rating + result.q7_rating + result.q8_rating) / 10).toFixed(1);
         
         const submittedDate = new Date(result.submitted_at).toLocaleDateString('ko-KR', {
             year: '2-digit',
@@ -1569,7 +1580,8 @@ function displayDetailedResults(results, uniqueKey) {
                 <td>${result.q9_rating}</td>
                 <td>${result.q10_rating}</td>
                 <td><strong>${avgScore}</strong></td>
-                <td style="font-size: 0.9em;">${result.additional_comments || '-'}</td>
+                <td>${instScore}</td>
+                <td style="font-size: 0.8em;">${result.additional_comments || '-'}</td>
             </tr>
         `;
     });
