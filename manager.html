@@ -1555,7 +1555,7 @@ function displayDetailedResults(results, uniqueKey) {
     results.forEach(result => {
         const avgScore = ((result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
             result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10).toFixed(1);
-        const instScore = ((result.q5_rating + result.q6_rating + result.q7_rating + result.q8_rating) / 10).toFixed(1);
+        const instScore = ((result.q5_rating + result.q6_rating + result.q7_rating + result.q8_rating) / 4).toFixed(1);
         
         const submittedDate = new Date(result.submitted_at).toLocaleDateString('ko-KR', {
             year: '2-digit',
