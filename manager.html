@@ -1513,7 +1513,7 @@ function displayDetailedResults(results, uniqueKey) {
             <div class="alert alert-info">
               <table width="100%%">
                 <tr>
-                  <td width="50%"><strong><strong>설문 고유키:</strong> ${uniqueKey}</td>
+                  <td width="50%"><strong>설문 고유키:</strong> ${uniqueKey}</td>
                   <td width="50%"><strong>총 응답 수:</strong> ${totalResponses}건</td>
                 </tr>
                 <tr>
@@ -1599,10 +1599,12 @@ function displayDetailedResults(results, uniqueKey) {
 
         <div style="text-align: right">
           <br />
-          <button class="btn" onclick="downloadXLSData('${educationInfo.center_name}')">
-            ${educationInfo.center_name} 전체 응답 다운로드
+          <button class="btn" onclick="downloadXLSData('${educationInfo.center_name}', { unique_key: '${uniqueKey}'})">
+            응답 XLS 다운로드
           </button>
-          <br />위에 표시된 내용 말고 전체 데이터를 액셀파일로 다운로드받습니다.
+          <button class="btn btn-secondary" onclick="downloadXLSData('${educationInfo.center_name}', { unique_key: '${uniqueKey}'})">
+            ${educationInfo.center_name} 전체 응답 XLS 다운로드
+          </button>
         </div>
       `;
 
