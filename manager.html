@@ -1499,11 +1499,13 @@ function displayDetailedResults(results, uniqueKey) {
     // 통계 계산
     const totalResponses = results.length;
     let totalScore = 0;
+    let totalInstScore = 0;
     results.forEach(result => {
-        totalScore += (result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
-            result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10;
+        totalScore += (result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating + result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10;
+        totalInstScore += (result.q5_rating + result.q6_rating + result.q7_rating + result.q8_rating) / 4;
     });
     const avgScore = (totalScore / totalResponses).toFixed(1);
+    const instScore = (totalInstScore / totalResponses).toFixed(1);
 
     let html = `
         <div style="margin-bottom: 20px;">
@@ -1511,16 +1513,20 @@ function displayDetailedResults(results, uniqueKey) {
             <div class="alert alert-info">
               <table width="100%%">
                 <tr>
-                 <td width="50%"><strong>센터명:</strong> ${educationInfo.center_name} </td>
-                 <td width="50%"><strong>설문 고유키:</strong> ${uniqueKey} </td>
+                  <td width="50%"><strong><strong>설문 고유키:</strong> ${uniqueKey}</td>
+                  <td width="50%"><strong>총 응답 수:</strong> ${totalResponses}건</td>
+                </tr>
+                <tr>
+                 <td><strong>센터명:</strong> ${educationInfo.center_name} </td>
+                 <td><strong>평균 만족도:</strong> ${avgScore}점 </td>
                  </tr>
                 <tr>
                   <td><strong>강사명:</strong> ${educationInfo.instructor_name} </td>
-                  <td><strong>총 응답 수:</strong> ${totalResponses}건 </td>
+                  <td><strong>강사 만족도:</strong> ${instScore}점 </td>
                 </tr>
                 <tr>
                   <td><strong>교육명:</strong> ${educationInfo.education_name}</td>
-                  <td><strong>평균 만족도:</strong> ${avgScore}점 </td>
+                  <td><strong> </td>
                 </tr>
               </table>
             </div>
