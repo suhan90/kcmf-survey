@@ -420,15 +420,13 @@ ALTER TABLE education_info ENABLE ROW LEVEL SECURITY;
 ALTER TABLE survey_results ENABLE ROW LEVEL SECURITY;
 -- 사용자 권한 설정
 CREATE POLICY "모두 읽기 가능" ON education_info FOR SELECT USING (true);
-CREATE POLICY "인증사용자 추가 가능" ON education_info FOR INSERT WITH CHECK ( auth.uid() IS NOT NULL );
-CREATE POLICY "인증사용자 소유 데이터 수정 가능" ON education_info FOR UPDATE USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
-CREATE POLICY "인증사용자 소유 데이터 삭제 가능" ON education_info FOR DELETE USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
+CREATE POLICY "인증사용자는 데이터 추가 가능" ON education_info FOR INSERT WITH CHECK ( auth.uid() IS NOT NULL );
+CREATE POLICY "인증사용자는 자기 데이터만 수정 가능" ON education_info FOR UPDATE USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
+CREATE POLICY "인증사용자는 자기 데이터만 삭제 가능" ON education_info FOR DELETE USING ( auth.uid() IN (전체관리자ID) OR user_id = auth.uid() );
 CREATE POLICY "모두 추가 가능" ON survey_results FOR INSERT WITH CHECK (true);
 CREATE POLICY "인증사용자는 전체 데이터 수정 가능" ON survey_results FOR ALL USING ( auth.uid() is not null) with check (auth.uid() is not null);
 
-5. supabase에서 설문 통계 속도 향상을 위해  함수 생성
-
--- Supabase SQL Editor에서 실행할 함수
+-- 전체 통계 함수
 CREATE OR REPLACE FUNCTION get_survey_stats(
   center_filter TEXT DEFAULT NULL,
   instructor_filter TEXT DEFAULT NULL,
@@ -476,7 +474,41 @@ BEGIN
 END;
 $$;
 
-6. 설치 후 이 화면 아래의 '연결 테스트' 버튼을 눌러 DB 접속이 되는지 확인할 수 있음.
+-- 교육별 통계를 위한 뷰
+CREATE VIEW edu_survey_view AS
+SELECT 
+    ei.id,
+    ei.unique_key,
+    ei.center_name,
+    ei.instructor_name,
+    ei.education_name,
+    COALESCE(sr.survey_cnt, 0) as survey_cnt,
+    COALESCE(sr.avg_score, 0.0) as avg_score,
+    COALESCE(sr.avg_inst_score, 0.0) as avg_inst_score
+FROM education_info ei
+LEFT JOIN (
+    SELECT 
+        unique_key,
+        COUNT(*) as survey_cnt,
+        ROUND(
+            AVG(
+                (q1_rating + q2_rating + q3_rating + q4_rating + q5_rating + 
+                 q6_rating + q7_rating + q8_rating + q9_rating + q10_rating) / 10.0
+            ), 1
+        ) as avg_score,
+        ROUND(
+            AVG(
+                (q5_rating + q6_rating + q7_rating + q8_rating) / 4.0
+            ), 1
+        ) as avg_inst_score
+    FROM survey_results 
+    GROUP BY unique_key
+) sr ON ei.unique_key = sr.unique_key;
+
+-- VIEW 조회 권한 부여
+GRANT SELECT ON edu_survey_view TO anon, authenticated;
+
+5. 설치 후 이 화면 아래의 '연결 테스트' 버튼을 눌러 DB 접속이 되는지 확인할 수 있음.
     </textarea>
             <button class="btn" onclick="testConnection()">연결 테스트</button>
             <div id="connectionStatus"></div>
@@ -1202,19 +1234,8 @@ async function loadSurveyStats(filters = {}) {
     try {
         // 1. 전체 응답 수와 평균 점수 계산
         let statsQuery = supabase
-            .from('survey_results')
-            .select(`
-                q1_rating,
-                q2_rating,
-                q3_rating,
-                q4_rating,
-                q5_rating,
-                q6_rating,
-                q7_rating,
-                q8_rating,
-                q9_rating,
-                q10_rating
-            `, { count: 'exact' });
+            .from('edu_survey_view')
+             .select('*', { count: 'exact' });
 
         // 검색 조건 적용
         if (filters.center) {
@@ -1230,47 +1251,24 @@ async function loadSurveyStats(filters = {}) {
         const { data: statsData, error: statsError, count: totalCount } = await statsQuery;
         if (statsError) throw statsError;
 
-        // 2. 고유 교육과정 수 계산 (DB에서 distinct 사용)
-        let uniqueQuery = supabase
-            .from('survey_results')
-            .select('unique_key', { count: 'exact' });
-
-        // 동일한 검색 조건 적용
-        if (filters.center) {
-            uniqueQuery = uniqueQuery.ilike('center_name', `%${filters.center}%`);
-        }
-        if (filters.instructor) {
-            uniqueQuery = uniqueQuery.ilike('instructor_name', `%${filters.instructor}%`);
-        }
-        if (filters.education) {
-            uniqueQuery = uniqueQuery.ilike('education_name', `%${filters.education}%`);
-        }
-
-        const { data: uniqueData, error: uniqueError } = await uniqueQuery;
-        if (uniqueError) throw uniqueError;
-
-        // 클라이언트에서 고유값 계산 (이 부분만 클라이언트에서 처리)
-        const uniqueEducations = new Set();
-        uniqueData.forEach(item => {
-            uniqueEducations.add(`${item.unique_key}`);
+      // 통계 계산 방식 변경 (view의 집계된 데이터 사용)
+        let totalResponses = 0;
+        let totalAvgScore = 0;
+        let totalInstScore = 0;
+        
+        statsData.forEach(row => {
+            totalResponses += row.survey_cnt;
+            totalAvgScore += row.avg_score * row.survey_cnt;
+            totalInstScore += row.avg_inst_score * row.survey_cnt;
         });
 
-        // 평균 점수 계산 (클라이언트에서 - 하지만 데이터량이 훨씬 적음)
-        let totalScore = 0;
-        if (statsData.length > 0) {
-            statsData.forEach(result => {
-                totalScore += (result.q1_rating + result.q2_rating + result.q3_rating + 
-                             result.q4_rating + result.q5_rating + result.q6_rating + 
-                             result.q7_rating + result.q8_rating + result.q9_rating + 
-                             result.q10_rating) / 10;
-            });
-        }
-
         // 통계 업데이트
-        document.getElementById('totalResponses').textContent = totalCount;
+        document.getElementById('totalResponses').textContent = totalResponses;
         document.getElementById('avgRating').textContent = 
-            statsData.length > 0 ? (totalScore / statsData.length).toFixed(1) : '0.0';
-        document.getElementById('uniqueEducations').textContent = uniqueEducations.size;
+            totalResponses > 0 ? (totalAvgScore / totalResponses).toFixed(1) : '0.0';
+        document.getElementById('instructorRating').textContent = 
+            totalResponses > 0 ? (totalInstScore / totalResponses).toFixed(1) : '0.0';
+        document.getElementById('uniqueEducations').textContent = statsData.length;
 
     } catch (error) {
         console.error('차선책 통계 로딩 실패:', error);
@@ -1329,8 +1327,9 @@ async function loadSurveyResults(filters = {}) {
     window.isLoadingSurveys = true;
 
     try {
-        // 목록 표시용 데이터만 로드 (통계 계산 제외)
-        let query = supabase.from('survey_results').select('*');
+        
+        // 뷰를 검색하는 것으로 변경
+        let query = supabase.from('edu_survey_view').select('*');
 
         // 검색 조건 추가
         if (filters.center) {
@@ -1346,7 +1345,7 @@ async function loadSurveyResults(filters = {}) {
         // 페이징 적용
         const from = surveyPage * recordsPerPage;
         const to = from + recordsPerPage - 1;
-        query = query.order('submitted_at', { ascending: false }).range(from, to);
+        query = query.order('id', { ascending: false }).range(from, to);
 
         const { data, error } = await query;
         if (error) throw error;
@@ -1399,14 +1398,13 @@ function displaySurveyResults(results, isInitialRender = false) {
     <table class="table">
     <thead>
     <tr>
-    <th width="14%">응답일</th>
-    <th width="10%">센터명</th>
-    <th width="10%">강사명</th>
-    <th width="24%">교육명</th>
-    <th width="10%">응답자</th>
-    <th width="11%">평균점수</th>
-    <th width="11%">강사점수</th>
-    <th width="11%">응답내역</th>
+      <th width="12%">센터명</th>
+      <th width="12%">강사명</th>
+      <th width="28%">교육명</th>
+      <th width="12%">응답수</th>
+      <th width="12%">평균점수</th>
+      <th width="12%">강사점수</th>
+      <th width="12%">상세내역</th>
     </tr>
     </thead>
     <tbody>
@@ -1414,24 +1412,16 @@ function displaySurveyResults(results, isInitialRender = false) {
 
     results.forEach(
       result => {
-        const avgScore = ((result.q1_rating + result.q2_rating + result.q3_rating + result.q4_rating + result.q5_rating +
-            result.q6_rating + result.q7_rating + result.q8_rating + result.q9_rating + result.q10_rating) / 10).toFixed(1);
-        const instScore = ((result.q5_rating + result.q6_rating + result.q7_rating + result.q8_rating) / 4).toFixed(1);
         html += `
-          <tr>
-          <td><code>${new Date(result.submitted_at).toLocaleDateString('ko-KR', {
-            year: '2-digit',
-            month: '2-digit',
-            day: '2-digit'
-        })}</code></td>
+        <tr>
           <td><code>${result.center_name}</code></td>
           <td>${result.instructor_name}</td>
           <td>${result.education_name}</td>
-          <td><code>${result.respondent_name}</code></td>
-          <td><strong>${avgScore}</strong></td>
-          <td>${instScore}</td>
-          <td><button class="btn" onclick="showResultDetail('${result.unique_key}')" style="padding: 5px 10px; font-size: 0.8rem;">상세</button></td>
-          </tr>
+          <td><strong>${result.survey_cnt}</strong></td>
+          <td><strong>${result.avg_score}</strong></td>
+          <td><strong>${result.avg_inst_score}</strong></td>
+          <td><button class="btn" onclick="showResultDetail('${result.unique_key}')" style="padding: 5px 10px; font-size: 0.8rem;">보기</button></td>
+        </tr>
         `;
       }
     );
@@ -1600,10 +1590,10 @@ function displayDetailedResults(results, uniqueKey) {
         <div style="text-align: right">
           <br />
           <button class="btn" onclick="downloadXLSData('${educationInfo.center_name}', { unique_key: '${uniqueKey}'})">
-            응답 XLS 다운로드
+            응답 xls 다운로드
           </button>
           <button class="btn btn-secondary" onclick="downloadXLSData('${educationInfo.center_name}', { unique_key: '${uniqueKey}'})">
-            ${educationInfo.center_name} 전체 응답 XLS 다운로드
+            ${educationInfo.center_name} 전체 xls 다운로드
           </button>
         </div>
       `;
